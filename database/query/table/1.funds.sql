@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS funds (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    gp_name VARCHAR(255),
+    fund_type VARCHAR(100),
+    vintage_year INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
