@@ -33,8 +33,18 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4-turbo-preview"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     
+    # NVIDIA (optional - embeddings)
+    NVIDIA_API_KEY: str = ""
+    NVIDIA_EMBEDDING_MODEL: str = "nvidia/nv-embedqa-e5-v5"
+    NVIDIA_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
+    
     # Anthropic (optional)
     ANTHROPIC_API_KEY: str = ""
+    
+    # Groq (optional)
+    GROK_API_KEY: str = ""
+    GROK_MODEL: str = "openai/gpt-oss-20b"
+    GROK_BASE_URL: str = "https://api.groq.com/openai/v1"
     
     # Vector Store
     VECTOR_STORE_PATH: str = "./vector_store"

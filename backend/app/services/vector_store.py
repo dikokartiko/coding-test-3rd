@@ -7,14 +7,62 @@ TODO: Implement vector storage using pgvector
 - Implement similarity search using pgvector operators
 - Handle metadata filtering
 """
-from typing import List, Dict, Any, Optional
+import json
+from typing import List, Dict, Any, Optional, Sequence
 import numpy as np
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+import httpx
+import certifi
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from app.core.config import settings
 from app.db.session import SessionLocal
+
+
+class NvidiaEmbeddings:
+    """Lightweight client for NVIDIA embedding endpoint"""
+
+    def __init__(self, model: str, api_key: str, base_url: str):
+        self.model = model
+        self.dimension = 1024  # nv-embedqa-e5-v5 outputs 1024-d vectors
+        self._client = httpx.Client(
+            base_url=base_url.rstrip("/"),
+            timeout=30.0,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            transport=httpx.HTTPTransport(
+                retries=3,
+                verify=certifi.where(),
+            ),
+        )
+
+    def embed_query(self, text: str) -> List[float]:
+        response = self._client.post(
+            "/embeddings",
+            json={
+                "model": self.model,
+                "input": text,
+                "input_type": "query",
+            },
+        )
+        response.raise_for_status()
+        return response.json()["data"][0]["embedding"]
+
+    def embed_documents(self, texts: Sequence[str]) -> List[List[float]]:
+        response = self._client.post(
+            "/embeddings",
+            json={
+                "model": self.model,
+                "input": list(texts),
+                "input_type": "document",
+            },
+        )
+        response.raise_for_status()
+        data = response.json()["data"]
+        return [item["embedding"] for item in data]
 
 
 class VectorStore:
@@ -22,21 +70,29 @@ class VectorStore:
     
     def __init__(self, db: Session = None):
         self.db = db or SessionLocal()
-        self.embeddings = self._initialize_embeddings()
+        self.embeddings, self.embedding_dimension = self._initialize_embeddings()
         self._ensure_extension()
     
     def _initialize_embeddings(self):
         """Initialize embedding model"""
+        if settings.NVIDIA_API_KEY:
+            embeddings = NvidiaEmbeddings(
+                model=settings.NVIDIA_EMBEDDING_MODEL,
+                api_key=settings.NVIDIA_API_KEY,
+                base_url=settings.NVIDIA_BASE_URL,
+            )
+            return embeddings, embeddings.dimension
         if settings.OPENAI_API_KEY:
-            return OpenAIEmbeddings(
+            embeddings = OpenAIEmbeddings(
                 model=settings.OPENAI_EMBEDDING_MODEL,
                 openai_api_key=settings.OPENAI_API_KEY
             )
-        else:
-            # Fallback to local embeddings
-            return HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2"
-            )
+            return embeddings, 1536
+        # Fallback to local embeddings
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        return embeddings, 384
     
     def _ensure_extension(self):
         """
@@ -51,8 +107,8 @@ class VectorStore:
             self.db.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             
             # Create embeddings table
-            # Dimension: 1536 for OpenAI, 384 for sentence-transformers
-            dimension = 1536 if settings.OPENAI_API_KEY else 384
+            # Dimension determined by active embedding provider
+            dimension = self.embedding_dimension
             
             create_table_sql = f"""
             CREATE TABLE IF NOT EXISTS document_embeddings (
@@ -87,8 +143,9 @@ class VectorStore:
         """
         try:
             # Generate embedding
-            embedding = await self._get_embedding(content)
-            embedding_list = embedding.tolist()
+            embedding = self._get_embedding(content)
+            embedding_list = [float(x) for x in embedding] if isinstance(embedding, list) else embedding.tolist()
+            metadata = metadata or {}
             
             # Insert into database
             insert_sql = text("""
@@ -100,8 +157,8 @@ class VectorStore:
                 "document_id": metadata.get("document_id"),
                 "fund_id": metadata.get("fund_id"),
                 "content": content,
-                "embedding": str(embedding_list),
-                "metadata": str(metadata)
+                "embedding": json.dumps(embedding_list),
+                "metadata": json.dumps(metadata)
             })
             self.db.commit()
         except Exception as e:
@@ -170,12 +227,18 @@ class VectorStore:
             # Format results
             results = []
             for row in result:
+                metadata = row[4]
+                if isinstance(metadata, str):
+                    try:
+                        metadata = json.loads(metadata)
+                    except json.JSONDecodeError:
+                        pass
                 results.append({
                     "id": row[0],
                     "document_id": row[1],
                     "fund_id": row[2],
                     "content": row[3],
-                    "metadata": row[4],
+                    "metadata": metadata,
                     "score": float(row[5])
                 })
             

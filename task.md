@@ -5,7 +5,6 @@
 ## Overview
 
 Build an **AI-powered fund performance analysis system** that enables Limited Partners (LPs) to:
-
 1. Upload fund performance PDF documents
 2. Automatically parse and extract structured data (tables → SQL, text → Vector DB)
 3. Ask natural language questions about fund metrics (DPI, IRR, etc.)
@@ -16,14 +15,12 @@ Build an **AI-powered fund performance analysis system** that enables Limited Pa
 ## Business Context
 
 As an LP, you receive quarterly fund performance reports in PDF format. These documents contain:
-
 - **Capital Call tables**: When and how much capital was called
 - **Distribution tables**: When and how much was distributed back to LPs
 - **Adjustment tables**: Rebalancing entries (recallable distributions, capital call adjustments)
 - **Text explanations**: Definitions, investment strategies, market commentary
 
 **Your task**: Build a system that automatically processes these documents and answers questions like:
-
 - "What is the current DPI of this fund?"
 - "Has the fund returned all invested capital to LPs?"
 - "What does 'Paid-In Capital' mean in this context?"
@@ -36,7 +33,6 @@ As an LP, you receive quarterly fund performance reports in PDF format. These do
 This repository contains a **project scaffold** to help you get started quickly:
 
 ### Infrastructure Setup
-
 - Docker Compose configuration (PostgreSQL, Redis, Backend, Frontend)
 - Database schema and models (SQLAlchemy)
 - Basic API structure (FastAPI with endpoints)
@@ -44,14 +40,12 @@ This repository contains a **project scaffold** to help you get started quickly:
 - Environment configuration
 
 ### Basic UI Components
-
 - Upload page layout
 - Chat interface layout
 - Fund dashboard layout
 - Navigation and routing
 
 ### Metrics Calculation (Provided)
-
 - **DPI (Distributions to Paid-In)** - Fully implemented
 - **IRR (Internal Rate of Return)** - Using numpy-financial
 - **PIC (Paid-In Capital)** - With adjustments
@@ -59,14 +53,12 @@ This repository contains a **project scaffold** to help you get started quickly:
 - Located in: `backend/app/services/metrics_calculator.py`
 
 **Debugging Features:**
-
 - View all capital calls, distributions, and adjustments used in calculations
 - See cash flow timeline for IRR calculation
 - Verify intermediate values (total calls, total distributions, etc.)
 - Trace calculation steps with detailed explanations
 
 ### Sample Data (Provided)
-
 - **Reference PDF**: ILPA metrics explanation document
 - **Sample Fund Report**: Generated with realistic data
 - **PDF Generator Script**: `files/create_sample_pdf.py`
@@ -77,7 +69,6 @@ This repository contains a **project scaffold** to help you get started quickly:
 The following **core functionalities are NOT implemented** and need to be built by you:
 
 #### 1. Document Processing Pipeline (Phase 2) - **CRITICAL**
-
 - [ ] PDF parsing with pdfplumber (integrate and test)
 - [ ] Table detection and extraction logic
 - [ ] Intelligent table classification (capital calls vs distributions vs adjustments)
@@ -86,12 +77,10 @@ The following **core functionalities are NOT implemented** and need to be built 
 - [ ] Background task processing (Celery integration)
 
 **Files to implement:**
-
 - `backend/app/services/document_processor.py` (skeleton provided)
 - `backend/app/services/table_parser.py` (needs implementation)
 
 #### 2. Vector Store & RAG System (Phase 3) - **CRITICAL**
-
 - [ ] Text chunking strategy implementation
 - [ ] embedding generation
 - [ ] FAISS index creation and management
@@ -100,27 +89,23 @@ The following **core functionalities are NOT implemented** and need to be built 
 - [ ] Prompt engineering for accurate responses
 
 **Files to implement:**
-
 - `backend/app/services/vector_store.py` (pgvector implementation with TODOs)
 - `backend/app/services/rag_engine.py` (needs implementation)
 
 **Note**: This project uses **pgvector** instead of FAISS. pgvector is a PostgreSQL extension that stores vectors directly in your database, eliminating the need for a separate vector database.
 
 #### 3. Query Engine & Intent Classification (Phase 3-4) - **CRITICAL**
-
 - [ ] Intent classifier (calculation vs definition vs retrieval)
 - [ ] Query router logic
-- [ ] LLM integration
+- [ ] LLM integration 
 - [ ] Response formatting
 - [ ] Source citation
 - [ ] Conversation context management
 
 **Files to implement:**
-
 - `backend/app/services/query_engine.py` (needs implementation)
 
 #### 4. Integration & Testing
-
 - [ ] End-to-end document upload flow
 - [ ] API integration tests
 - [ ] Error handling and logging
@@ -185,7 +170,6 @@ The following **core functionalities are NOT implemented** and need to be built 
 ### PostgreSQL Schema
 
 #### `funds` table
-
 ```sql
 CREATE TABLE funds (
     id SERIAL PRIMARY KEY,
@@ -198,7 +182,6 @@ CREATE TABLE funds (
 ```
 
 #### `capital_calls` table
-
 ```sql
 CREATE TABLE capital_calls (
     id SERIAL PRIMARY KEY,
@@ -212,7 +195,6 @@ CREATE TABLE capital_calls (
 ```
 
 #### `distributions` table
-
 ```sql
 CREATE TABLE distributions (
     id SERIAL PRIMARY KEY,
@@ -227,7 +209,6 @@ CREATE TABLE distributions (
 ```
 
 #### `adjustments` table
-
 ```sql
 CREATE TABLE adjustments (
     id SERIAL PRIMARY KEY,
@@ -243,7 +224,6 @@ CREATE TABLE adjustments (
 ```
 
 #### `documents` table
-
 ```sql
 CREATE TABLE documents (
     id SERIAL PRIMARY KEY,
@@ -261,7 +241,6 @@ CREATE TABLE documents (
 ## Required Features (Phase 1-4)
 
 ### Phase 1: Core Infrastructure
-
 - [ ] Docker setup with PostgreSQL, Redis
 - [ ] FastAPI backend with CRUD endpoints
 - [ ] Next.js frontend with basic layout
@@ -269,7 +248,6 @@ CREATE TABLE documents (
 - [ ] Environment configuration
 
 ### Phase 2: Document Processing
-
 - [ ] File upload API endpoint
 - [ ] Docling integration for PDF parsing
 - [ ] Table extraction and SQL storage
@@ -277,7 +255,6 @@ CREATE TABLE documents (
 - [ ] Parsing status tracking
 
 ### Phase 3: Vector Store & RAG
-
 - [ ] pgvector setup (PostgreSQL extension)
 - [ ] Embedding generation (OpenAI/local)
 - [ ] Similarity search using pgvector operators
@@ -285,7 +262,6 @@ CREATE TABLE documents (
 - [ ] Basic chat interface
 
 ### Phase 4: Fund Metrics Calculation
-
 - [ ] DPI calculation function
 - [ ] IRR calculation function
 - [ ] Metrics API endpoints
@@ -296,7 +272,6 @@ CREATE TABLE documents (
 ## Bonus Features (Phase 5-6)
 
 ### Phase 5: Dashboard & Polish
-
 - [ ] Fund list page with metrics
 - [ ] Fund detail page with charts
 - [ ] Transaction tables with pagination
@@ -304,7 +279,6 @@ CREATE TABLE documents (
 - [ ] Loading states
 
 ### Phase 6: Advanced Features
-
 - [ ] Conversation history
 - [ ] Multi-fund comparison
 - [ ] Excel export
@@ -316,7 +290,6 @@ CREATE TABLE documents (
 ## Getting Started
 
 ### Prerequisites
-
 - Docker & Docker Compose
 - Node.js 18+ (for local frontend development)
 - Python 3.11+ (for local backend development)
@@ -325,14 +298,12 @@ CREATE TABLE documents (
 ### Quick Start
 
 1. **Clone the repository**
-
 ```bash
 git clone <your-repo-url>
 cd fund-analysis-system
 ```
 
 2. **Set up environment variables**
-
 ```bash
 # Copy example env file
 cp .env.example .env
@@ -343,25 +314,21 @@ cp .env.example .env
 ```
 
 3. **Start with Docker Compose**
-
 ```bash
 docker-compose up -d
 ```
 
 4. **Access the application**
-
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
 5. **Upload sample document**
-
 - Navigate to http://localhost:3000/upload
 - Upload the provided PDF: `files/ILPA based Capital Accounting and Performance Metrics_ PIC, Net PIC, DPI, IRR  .pdf`
 - Wait for parsing to complete
 
 6. **Start asking questions**
-
 - Go to http://localhost:3000/chat
 - Try: "What is DPI?"
 - Try: "Calculate the current DPI for this fund"
@@ -456,7 +423,6 @@ fund-analysis-system/
 ## API Endpoints
 
 ### Documents
-
 ```
 POST   /api/documents/upload
 GET    /api/documents/{doc_id}/status
@@ -465,7 +431,6 @@ DELETE /api/documents/{doc_id}
 ```
 
 ### Funds
-
 ```
 GET    /api/funds
 POST   /api/funds
@@ -475,7 +440,6 @@ GET    /api/funds/{fund_id}/metrics
 ```
 
 ### Chat
-
 ```
 POST   /api/chat/query
 GET    /api/chat/conversations/{conv_id}
@@ -489,19 +453,16 @@ See [API.md](docs/API.md) for detailed documentation.
 ## Fund Metrics Formulas
 
 ### Paid-In Capital (PIC)
-
 ```
 PIC = Total Capital Calls - Adjustments
 ```
 
 ### DPI (Distribution to Paid-In)
-
 ```
 DPI = Cumulative Distributions / PIC
 ```
 
 ### IRR (Internal Rate of Return)
-
 ```
 IRR = Rate where NPV of all cash flows = 0
 Uses numpy-financial.irr() function
@@ -514,28 +475,24 @@ See [CALCULATIONS.md](docs/CALCULATIONS.md) for detailed formulas.
 ## Testing
 
 ### Run Backend Tests
-
 ```bash
 cd backend
 pytest tests/ -v --cov=app
 ```
 
 ### Run Frontend Tests
-
 ```bash
 cd frontend
 npm test
 ```
 
 ### Test Document Upload
-
 ```bash
 curl -X POST "http://localhost:8000/api/documents/upload" \
   -F "file=@files/sample_fund_report.pdf"
 ```
 
 ### Test Chat Query
-
 ```bash
 curl -X POST "http://localhost:8000/api/chat/query" \
   -H "Content-Type: application/json" \
@@ -550,7 +507,6 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 ## Implementation Guidelines
 
 ### Document Parsing Strategy
-
 1. Use **Docling** to extract document structure
 2. Identify tables by headers (e.g., "Capital Call", "Distribution")
 3. Parse table rows and map to SQL schema
@@ -558,13 +514,11 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 5. Handle parsing errors gracefully
 
 ### RAG Pipeline
-
 1. **Retrieval**: Vector similarity search (top-k=5)
 2. **Augmentation**: Combine retrieved context with SQL data
 3. **Generation**: LLM generates answer with citations
 
 ### Calculation Logic
-
 - Always validate input data before calculation
 - Handle edge cases (zero PIC, missing data)
 - Return calculation breakdown for transparency
@@ -575,25 +529,21 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 ## Sample Questions to Test
 
 ### Definitions
-
 - "What does DPI mean?"
 - "Explain Paid-In Capital"
 - "What is a recallable distribution?"
 
 ### Calculations
-
 - "What is the current DPI?"
 - "Calculate the IRR for this fund"
 - "Has the fund returned all capital to LPs?"
 
 ### Data Retrieval
-
 - "Show me all capital calls in 2024"
 - "What was the largest distribution?"
 - "List all adjustments"
 
 ### Complex Queries
-
 - "How is the fund performing compared to industry benchmarks?"
 - "What percentage of distributions were recallable?"
 - "Explain the trend in capital calls over time"
@@ -603,7 +553,6 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 ## Evaluation Criteria
 
 ### Must-Have (Pass/Fail)
-
 - Document upload and parsing works
 - Tables correctly stored in SQL
 - Text stored in vector DB
@@ -612,32 +561,27 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 - Application runs via Docker
 
 ### Code Quality (40 points)
-
 - **Structure**: Modular, separation of concerns (10pts)
 - **Readability**: Clear naming, comments (10pts)
 - **Error Handling**: Try-catch, validation (10pts)
 - **Type Safety**: TypeScript, Pydantic (10pts)
 
 ### Functionality (30 points)
-
 - **Parsing Accuracy**: Table recognition (10pts)
 - **Calculation Accuracy**: DPI, IRR (10pts)
 - **RAG Quality**: Relevant answers (10pts)
 
 ### UX/UI (20 points)
-
 - **Intuitiveness**: Easy to use (10pts)
 - **Feedback**: Loading, errors, success (5pts)
 - **Design**: Clean, consistent (5pts)
 
 ### Documentation (10 points)
-
 - **README**: Setup instructions (5pts)
 - **API Docs**: Endpoint descriptions (3pts)
 - **Architecture**: Diagrams (2pts)
 
 ### Bonus Points (up to 20 points)
-
 - Dashboard implementation (+5pts)
 - Charts/visualization (+3pts)
 - Multi-fund support (+3pts)
@@ -649,7 +593,6 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 ## Submission Requirements
 
 ### What to Submit
-
 1. **GitHub Repository** (public or private with access)
 2. **Complete source code** (backend + frontend)
 3. **Docker configuration** (docker-compose.yml)
@@ -657,7 +600,6 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 5. **Sample data** (at least one test PDF)
 
 ### README Must Include
-
 - Project overview
 - Tech stack
 - Setup instructions (Docker)
@@ -669,12 +611,10 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 - Screenshots (minimum 3)
 
 ### Timeline
-
 - **Recommended**: 1 week (Phase 1-4)
 - **Maximum**: 2 weeks (Phase 1-6)
 
 ### How to Submit
-
 1. Push code to GitHub
 2. Test that `docker-compose up` works
 3. Send repository URL via email
@@ -685,7 +625,6 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 ## Tech Stack
 
 ### Backend
-
 - **Framework**: FastAPI (Python 3.11+)
 - **Document Parser**: Docling
 - **Vector DB**: pgvector (PostgreSQL extension)
@@ -697,7 +636,6 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 - **Task Queue**: Celery + Redis
 
 ### Frontend
-
 - **Framework**: Next.js 14 (App Router)
 - **UI Library**: shadcn/ui + Tailwind CSS
 - **State**: Zustand or React Context
@@ -706,7 +644,6 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 - **File Upload**: react-dropzone
 
 ### Infrastructure
-
 - **Development**: Docker + Docker Compose
 - **Deployment**: Your choice (Vercel, Railway, AWS, etc.)
 
@@ -715,37 +652,29 @@ curl -X POST "http://localhost:8000/api/chat/query" \
 ## Troubleshooting
 
 ### Document Parsing Issues
-
 **Problem**: Docling can't extract tables
-**Solution**:
-
+**Solution**: 
 - Check PDF format (ensure it's not scanned image)
 - Add fallback parsing logic
 - Manually define table structure patterns
 
 ### LLM API Costs
-
 **Problem**: OpenAI API is expensive
 **Solution**: Use free alternatives (see "Free LLM Options" section below)
-
 - Use caching for repeated queries
 - Use cheaper models (gpt-3.5-turbo)
 - Use local LLM (Ollama) for development
 
 ### IRR Calculation Errors
-
 **Problem**: IRR returns NaN or extreme values
 **Solution**:
-
 - Validate cash flow sequence
 - Check for missing dates
 - Handle edge cases (all positive/negative flows)
 
 ### CORS Issues
-
 **Problem**: Frontend can't call backend API
 **Solution**:
-
 - Add CORS middleware in FastAPI
 - Allow origin: http://localhost:3000
 - Check network configuration in Docker
@@ -761,7 +690,6 @@ You don't need to pay for OpenAI API! Here are free alternatives:
 **Completely free, runs locally on your machine**
 
 1. **Install Ollama**
-
 ```bash
 # Mac
 brew install ollama
@@ -774,7 +702,6 @@ curl -fsSL https://ollama.com/install.sh | sh
 ```
 
 2. **Download a model**
-
 ```bash
 # Llama 3.2 (3B - fast, good for development)
 ollama pull llama3.2
@@ -787,7 +714,6 @@ ollama pull mistral
 ```
 
 3. **Update your .env**
-
 ```bash
 # Use Ollama instead of OpenAI
 LLM_PROVIDER=ollama
@@ -796,7 +722,6 @@ OLLAMA_MODEL=llama3.2
 ```
 
 4. **Modify your code to use Ollama**
-
 ```python
 # In backend/app/services/query_engine.py
 from langchain_community.llms import Ollama
@@ -817,26 +742,22 @@ llm = Ollama(
 **Free tier: 60 requests per minute**
 
 1. **Get free API key**
-
    - Go to https://makersuite.google.com/app/apikey
    - Click "Create API Key"
    - Copy your key
 
 2. **Install package**
-
 ```bash
 pip install langchain-google-genai
 ```
 
 3. **Update .env**
-
 ```bash
 GOOGLE_API_KEY=your-gemini-api-key
 LLM_PROVIDER=gemini
 ```
 
 4. **Use in code**
-
 ```python
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -856,25 +777,21 @@ llm = ChatGoogleGenerativeAI(
 **Free tier: Very fast inference, generous limits**
 
 1. **Get free API key**
-
    - Go to https://console.groq.com
    - Sign up and get API key
 
 2. **Install package**
-
 ```bash
 pip install langchain-groq
 ```
 
 3. **Update .env**
-
 ```bash
 GROQ_API_KEY=your-groq-api-key
 LLM_PROVIDER=groq
 ```
 
 4. **Use in code**
-
 ```python
 from langchain_groq import ChatGroq
 
@@ -894,19 +811,16 @@ llm = ChatGroq(
 **Free inference API**
 
 1. **Get free token**
-
    - Go to https://huggingface.co/settings/tokens
    - Create a token
 
 2. **Update .env**
-
 ```bash
 HUGGINGFACE_API_TOKEN=your-hf-token
 LLM_PROVIDER=huggingface
 ```
 
 3. **Use in code**
-
 ```python
 from langchain_community.llms import HuggingFaceHub
 
@@ -923,26 +837,23 @@ llm = HuggingFaceHub(
 
 ### Comparison Table
 
-| Provider         | Cost | Speed     | Quality   | Setup Difficulty |
-| ---------------- | ---- | --------- | --------- | ---------------- |
-| **Ollama**       | Free | Medium    | Good      | Easy             |
-| **Gemini**       | Free | Fast      | Very Good | Very Easy        |
-| **Groq**         | Free | Very Fast | Good      | Very Easy        |
-| **Hugging Face** | Free | Slow      | Varies    | Easy             |
-| OpenAI           | Paid | Fast      | Excellent | Very Easy        |
+| Provider | Cost | Speed | Quality | Setup Difficulty |
+|----------|------|-------|---------|------------------|
+| **Ollama** | Free | Medium | Good | Easy |
+| **Gemini** | Free | Fast | Very Good | Very Easy |
+| **Groq** | Free | Very Fast | Good | Very Easy |
+| **Hugging Face** | Free | Slow | Varies | Easy |
+| OpenAI | Paid | Fast | Excellent | Very Easy |
 
 ### Recommended Setup for This Project
 
 **For Development/Testing:**
-
 - Use **Ollama** with `llama3.2` (free, no limits)
 
 **For Production/Demo:**
-
 - Use **Groq** or **Gemini** (free tier is generous)
 
 **If you have budget:**
-
 - Use **OpenAI GPT-4** (best quality)
 
 ---
@@ -963,7 +874,6 @@ Located in `files/` directory:
 For comprehensive testing, you should create **mock fund performance reports** with:
 
 #### Example Capital Call Table
-
 ```
 Date       | Call Number | Amount      | Description
 -----------|-------------|-------------|------------------
@@ -973,7 +883,6 @@ Date       | Call Number | Amount      | Description
 ```
 
 #### Example Distribution Table
-
 ```
 Date       | Type        | Amount      | Recallable | Description
 -----------|-------------|-------------|------------|------------------
@@ -983,7 +892,6 @@ Date       | Type        | Amount      | Recallable | Description
 ```
 
 #### Example Adjustment Table
-
 ```
 Date       | Type                | Amount    | Description
 -----------|---------------------|-----------|------------------
@@ -994,7 +902,6 @@ Date       | Type                | Amount    | Description
 ### Expected Test Results
 
 For the sample data above:
-
 - **Total Capital Called**: $10,000,000
 - **Total Distributions**: $4,000,000
 - **Net PIC**: $10,100,000 (after adjustments)
@@ -1014,7 +921,6 @@ python create_sample_pdf.py
 ```
 
 This creates `Sample_Fund_Performance_Report.pdf` with:
-
 - Capital calls table (4 entries)
 - Distributions table (4 entries)
 - Adjustments table (3 entries)
@@ -1023,7 +929,6 @@ This creates `Sample_Fund_Performance_Report.pdf` with:
 #### Option 2: Create Your Own
 
 You can create PDFs using:
-
 - Google Docs/Word → Export as PDF
 - Python libraries (reportlab, fpdf)
 - Online PDF generators
@@ -1057,7 +962,6 @@ You can create PDFs using:
 ## Support
 
 For questions about this coding challenge:
-
 - Open an issue in this repository
 - Email: [your-contact-email]
 
@@ -1070,42 +974,36 @@ For questions about this coding challenge:
 ## Appendix: Calculation Formulas (from PDF)
 
 ### Paid-In Capital (PIC)
-
 ```
 PIC = Capital Contributions (Gross) - Adjustments
 ```
 
 ### DPI (Distribution to Paid-In)
-
 ```
 DPI = Cumulative Distributions / PIC
 ```
 
 ### Cumulative Distributions
-
 ```
-Cumulative Distributions =
-  Return of Capital +
-  Dividends Paid +
-  Interest Paid +
-  Realized Gains Distributed -
+Cumulative Distributions = 
+  Return of Capital + 
+  Dividends Paid + 
+  Interest Paid + 
+  Realized Gains Distributed - 
   (Fees & Carried Interest Withheld)
 ```
 
 ### Adjustments
-
 ```
 Adjustments = Σ (Rebalance of Distribution + Rebalance of Capital Call)
 ```
 
 #### Rebalance of Distribution
-
 - **Nature**: Clawback of over-distributed amounts
 - **Recording**: Contribution (-)
 - **DPI Impact**: Numerator ↓, Denominator ↑ → DPI ↓
 
 #### Rebalance of Capital Call
-
 - **Nature**: Refund of over-called capital
 - **Recording**: Distribution (+)
 - **DPI Impact**: Denominator ↓, Numerator unchanged → Requires flag to prevent DPI inflation

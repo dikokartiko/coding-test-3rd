@@ -23,7 +23,15 @@ class QueryEngine:
     
     def _initialize_llm(self):
         """Initialize LLM"""
-        if settings.OPENAI_API_KEY:
+        if settings.GROK_API_KEY:
+            grok_base_url = settings.GROK_BASE_URL.rstrip("/")
+            return ChatOpenAI(
+                model=settings.GROK_MODEL,
+                temperature=0,
+                api_key=settings.GROK_API_KEY,
+                base_url=grok_base_url
+            )
+        elif settings.OPENAI_API_KEY:
             return ChatOpenAI(
                 model=settings.OPENAI_MODEL,
                 temperature=0,
