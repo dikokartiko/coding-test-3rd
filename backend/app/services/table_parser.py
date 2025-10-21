@@ -1,5 +1,11 @@
 """
-Table parser service for extracting and classifying tables from PDFs
+Table parser service for extracting and classifying tables from PDFs.
+
+The heuristics implemented here prioritise robustness over perfect NLP. We rely
+on flexible header token matching so common layout variations (e.g. "Call
+Number", "Capital Call", "Recallable Distribution") can still be detected while
+avoiding substring collisions such as "Recallable" erroneously matching
+"Capital Call".
 """
 from typing import List, Dict, Any, Optional, Set
 import pdfplumber
@@ -7,7 +13,15 @@ import re
 
 
 class TableParser:
-    """Parse and classify tables from PDF documents"""
+    """
+    Parse and classify tables from PDF documents.
+
+    The classifier inspects header tokens and phrases to determine whether a
+    table contains capital calls, distributions, or adjustments. The approach is
+    deliberately token-based to remain resilient to layout noise (e.g. merged
+    cells, punctuation) while ignoring substrings that would otherwise create
+    false positives.
+    """
     
     def __init__(self):
         pass
@@ -58,11 +72,45 @@ class TableParser:
         for cell in header_cells:
             header_tokens.update(re.findall(r"\b\w+\b", cell))
 
+        # Collect representative tokens from data rows (first few rows) to catch
+        # tables whose headers are generic but row content is descriptive.
+        data_tokens: Set[str] = set()
+        for row in table[1:4]:
+            for cell in row:
+                if cell:
+                    data_tokens.update(re.findall(r"\b\w+\b", str(cell).lower()))
+
         def has_phrase(phrases: List[str]) -> bool:
             return any(phrase in header_text for phrase in phrases)
 
         def has_tokens(required_sets: List[Set[str]]) -> bool:
-            return any(required <= header_tokens for required in required_sets)
+            return any(
+                required <= header_tokens or required <= data_tokens
+                for required in required_sets
+            )
+
+        # Adjustment indicators (checked first so "Capital Call Adjustment" rows
+        # resolve to adjustments rather than capital calls).
+        adjustment_phrases = [
+            'adjustment',
+            'adjustments',
+            'amendment',
+            'modification',
+        ]
+        adjustment_token_sets = [
+            {'adjustment'},
+            {'adjustments'},
+            {'amendment'},
+            {'modification'},
+            {'change'},
+        ]
+
+        if (
+            has_phrase(adjustment_phrases)
+            or has_tokens(adjustment_token_sets)
+            or ('adjustment' in data_tokens)
+        ):
+            return 'adjustment'
 
         # Capital call indicators
         capital_phrases = [
@@ -84,6 +132,7 @@ class TableParser:
             has_phrase(capital_phrases)
             or has_tokens(capital_token_sets)
             or ("call" in header_tokens and "recallable" not in header_tokens)
+            or ("contribution" in data_tokens and "adjustment" not in data_tokens)
         ):
             return 'capital_call'
 
@@ -108,27 +157,13 @@ class TableParser:
         if (
             has_phrase(distribution_phrases)
             or has_tokens(distribution_token_sets)
-            or ('recallable' in header_tokens and 'capital' not in header_tokens)
+            or (
+                'recallable' in header_tokens
+                and 'capital' not in header_tokens
+            )
+            or ('distribution' in data_tokens and 'adjustment' not in data_tokens)
         ):
             return 'distribution'
-
-        # Adjustment indicators
-        adjustment_phrases = [
-            'adjustment',
-            'adjustments',
-            'amendment',
-            'modification',
-        ]
-        adjustment_token_sets = [
-            {'adjustment'},
-            {'adjustments'},
-            {'amendment'},
-            {'modification'},
-            {'change'},
-        ]
-
-        if has_phrase(adjustment_phrases) or has_tokens(adjustment_token_sets):
-            return 'adjustment'
 
         return 'unknown'
     
