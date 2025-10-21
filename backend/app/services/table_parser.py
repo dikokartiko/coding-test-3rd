@@ -1,8 +1,9 @@
 """
 Table parser service for extracting and classifying tables from PDFs
 """
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 import pdfplumber
+import re
 
 
 class TableParser:
@@ -50,25 +51,86 @@ class TableParser:
         if not table or not table[0]:
             return 'unknown'
         
-        # Convert header row to string for analysis
-        header_row = [str(cell).lower() if cell else '' for cell in table[0]]
-        header_text = ' '.join(header_row)
-        
-        # Classify based on keywords in header
-        if any(keyword in header_text for keyword in [
-            'capital', 'call', 'capital call', 'subscription', 'contribution'
-        ]):
+        # Tokenize header cells to avoid substring collisions (e.g., "recallable" vs "call")
+        header_cells = [str(cell).lower() if cell else '' for cell in table[0]]
+        header_text = ' '.join(header_cells)
+        header_tokens: Set[str] = set()
+        for cell in header_cells:
+            header_tokens.update(re.findall(r"\b\w+\b", cell))
+
+        def has_phrase(phrases: List[str]) -> bool:
+            return any(phrase in header_text for phrase in phrases)
+
+        def has_tokens(required_sets: List[Set[str]]) -> bool:
+            return any(required <= header_tokens for required in required_sets)
+
+        # Capital call indicators
+        capital_phrases = [
+            'capital call',
+            'capital contribution',
+            'capital commitments',
+            'subscription notice',
+        ]
+        capital_token_sets = [
+            {'capital', 'call'},
+            {'capital', 'contribution'},
+            {'subscription', 'capital'},
+            {'capital', 'commitment'},
+            {'call', 'number'},
+            {'capital', 'schedule'},
+        ]
+
+        if (
+            has_phrase(capital_phrases)
+            or has_tokens(capital_token_sets)
+            or ("call" in header_tokens and "recallable" not in header_tokens)
+        ):
             return 'capital_call'
-        elif any(keyword in header_text for keyword in [
-            'distribution', 'return', 'dividend', 'payout', 'repayment'
-        ]):
+
+        # Distribution indicators
+        distribution_phrases = [
+            'distribution',
+            'distributions',
+            'return of capital',
+            'capital returned',
+            'dividend payment',
+        ]
+        distribution_token_sets = [
+            {'distribution'},
+            {'distributions'},
+            {'return', 'capital'},
+            {'dividend'},
+            {'payout'},
+            {'repayment'},
+            {'recallable'},
+        ]
+
+        if (
+            has_phrase(distribution_phrases)
+            or has_tokens(distribution_token_sets)
+            or ('recallable' in header_tokens and 'capital' not in header_tokens)
+        ):
             return 'distribution'
-        elif any(keyword in header_text for keyword in [
-            'adjustment', 'amendment', 'modification', 'change'
-        ]):
+
+        # Adjustment indicators
+        adjustment_phrases = [
+            'adjustment',
+            'adjustments',
+            'amendment',
+            'modification',
+        ]
+        adjustment_token_sets = [
+            {'adjustment'},
+            {'adjustments'},
+            {'amendment'},
+            {'modification'},
+            {'change'},
+        ]
+
+        if has_phrase(adjustment_phrases) or has_tokens(adjustment_token_sets):
             return 'adjustment'
-        else:
-            return 'unknown'
+
+        return 'unknown'
     
     def parse_table_data(self, table: List[List[Any]], table_type: str) -> List[Dict[str, Any]]:
         """

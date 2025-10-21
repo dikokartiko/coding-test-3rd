@@ -1,7 +1,7 @@
 """
 Document API endpoints
 """
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 import os
@@ -14,15 +14,15 @@ from app.schemas.document import (
     DocumentUploadResponse,
     DocumentStatus
 )
-from app.services.document_processor import DocumentProcessor
 from app.core.config import settings
+from app.tasks.document_tasks import process_document_task
+from app.models.fund import Fund
 
 router = APIRouter()
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     fund_id: int = None,
     db: Session = Depends(get_db)
@@ -44,6 +44,12 @@ async def upload_document(
             detail=f"File size exceeds maximum allowed size of {settings.MAX_UPLOAD_SIZE} bytes"
         )
     
+    # Validate fund_id when provided
+    if fund_id is not None:
+        fund_exists = db.query(Fund.id).filter(Fund.id == fund_id).first()
+        if not fund_exists:
+            raise HTTPException(status_code=404, detail=f"Fund with id {fund_id} not found")
+    
     # Create upload directory if it doesn't exist
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     
@@ -60,57 +66,26 @@ async def upload_document(
         fund_id=fund_id,
         file_name=file.filename,
         file_path=file_path,
-        parsing_status="pending"
+        parsing_status="queued"
     )
     db.add(document)
     db.commit()
     db.refresh(document)
     
-    # Start background processing
-    background_tasks.add_task(
-        process_document_task,
+    # Enqueue Celery task
+    fund_identifier = fund_id or 1
+    async_result = process_document_task.delay(
         document.id,
         file_path,
-        fund_id or 1  # Default fund_id if not provided
+        fund_identifier
     )
     
     return DocumentUploadResponse(
         document_id=document.id,
-        task_id=None,
-        status="pending",
-        message="Document uploaded successfully. Processing started."
+        task_id=async_result.id,
+        status="queued",
+        message="Document uploaded successfully. Processing queued."
     )
-
-
-async def process_document_task(document_id: int, file_path: str, fund_id: int):
-    """Background task to process document"""
-    from app.db.session import SessionLocal
-    
-    db = SessionLocal()
-    
-    try:
-        # Update status to processing
-        document = db.query(Document).filter(Document.id == document_id).first()
-        document.parsing_status = "processing"
-        db.commit()
-        
-        # Process document
-        processor = DocumentProcessor()
-        result = await processor.process_document(file_path, document_id, fund_id)
-        
-        # Update status
-        document.parsing_status = result["status"]
-        if result["status"] == "failed":
-            document.error_message = result.get("error")
-        db.commit()
-        
-    except Exception as e:
-        document = db.query(Document).filter(Document.id == document_id).first()
-        document.parsing_status = "failed"
-        document.error_message = str(e)
-        db.commit()
-    finally:
-        db.close()
 
 
 @router.get("/{document_id}/status", response_model=DocumentStatus)
