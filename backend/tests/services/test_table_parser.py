@@ -141,3 +141,4 @@ def test_extract_tables(monkeypatch: pytest.MonkeyPatch, parser: TableParser) ->
 
     assert len(tables) == 1
     assert tables[0]["type"] == "distribution"
+    assert tables[0]["page"] == 1

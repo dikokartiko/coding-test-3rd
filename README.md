@@ -78,12 +78,12 @@ The following **core functionalities are NOT implemented** and need to be built 
 
 #### 1. Document Processing Pipeline (Phase 2) - **CRITICAL**
 
-- [ ] PDF parsing with pdfplumber (integrate and test)
-- [ ] Table detection and extraction logic
-- [ ] Intelligent table classification (capital calls vs distributions vs adjustments)
-- [ ] Data validation and cleaning
-- [ ] Error handling for malformed PDFs
-- [ ] Background task processing (Celery integration)
+- [✔] PDF parsing with pdfplumber (integrate and test)
+- [✔] Table detection and e✔traction logic
+- [✔] Intelligent table classification (capital calls vs distributions vs adjustments)
+- [✔] Data validation and cleaning
+- [✔] Error handling for malformed PDFs
+- [✔] Background task processing (Celery integration)
 
 **Files to implement:**
 
@@ -262,19 +262,19 @@ CREATE TABLE documents (
 
 ### Phase 1: Core Infrastructure
 
-- [ ] Docker setup with PostgreSQL, Redis
-- [ ] FastAPI backend with CRUD endpoints
-- [ ] Next.js frontend with basic layout
-- [ ] Database schema implementation
-- [ ] Environment configuration
+- [✔] Docker setup with PostgreSQL, Redis
+- [✔] FastAPI backend with CRUD endpoints
+- [✔] Next.js frontend with basic layout
+- [✔] Database schema implementation
+- [✔] Environment configuration
 
 ### Phase 2: Document Processing
 
-- [ ] File upload API endpoint
-- [ ] Docling integration for PDF parsing
-- [ ] Table extraction and SQL storage
-- [ ] Text chunking and embedding
-- [ ] Parsing status tracking
+- [✔] File upload API endpoint
+- [✔] Docling integration for PDF parsing
+- [✔] Table extraction and SQL storage
+- [✔] Text chunking and embedding
+- [✔] Parsing status tracking
 
 ### Phase 3: Vector Store & RAG
 

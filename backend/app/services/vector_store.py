@@ -163,7 +163,6 @@ class VectorStore:
                 "embedding": json.dumps(embedding_list),
                 "metadata": json.dumps(metadata)
             })
-            self.db.commit()
         except Exception as e:
             print(f"Error adding document: {e}")
             self.db.rollback()

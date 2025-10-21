@@ -38,7 +38,7 @@ class TableParser:
         """
         tables = []
         with pdfplumber.open(pdf_path) as pdf:
-            for page_num, page in enumerate(pdf.pages):
+            for page_num, page in enumerate(pdf.pages, start=1):
                 # Extract tables from the page
                 page_tables = page.extract_tables()
                 for table_idx, table in enumerate(page_tables):

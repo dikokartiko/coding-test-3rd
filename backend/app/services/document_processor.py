@@ -127,7 +127,6 @@ class DocumentProcessor:
             stats["records"]["adjustments"] = self._persist_adjustments(
                 db, adjustment_records, fund_id
             )
-            db.commit()
 
             # Chunk text and store in vector database
             chunks = self._chunk_text(text_content)
@@ -143,6 +142,7 @@ class DocumentProcessor:
                 }
                 await vector_store.add_document(chunk["content"], metadata)
 
+            db.commit()
             stats["status"] = "completed"
             return stats
 
@@ -339,10 +339,19 @@ class DocumentProcessor:
         overlap = min(settings.CHUNK_OVERLAP, chunk_size // 2)
 
         chunks: List[Dict[str, Any]] = []
-        current_chunk: List[str] = []
+        current_chunk: List[Dict[str, Any]] = []
         current_length = 0
-        start_page: Optional[int] = None
-        end_page: Optional[int] = None
+
+        def build_chunk(entries: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+            text_content = " ".join(item["sentence"] for item in entries).strip()
+            pages = [item["page"] for item in entries if item.get("page") is not None]
+            page_start = min(pages) if pages else None
+            page_end = max(pages) if pages else None
+            return {
+                "content": text_content,
+                "page_start": page_start,
+                "page_end": page_end,
+            }
 
         for entry in text_content:
             page = entry.get("page")
@@ -353,43 +362,28 @@ class DocumentProcessor:
                 if not sentence:
                     continue
 
-                if start_page is None:
-                    start_page = page
-
-                current_chunk.append(sentence)
+                current_chunk.append({"sentence": sentence, "page": page})
                 current_length += len(sentence) + 1
-                end_page = page
 
                 if current_length >= chunk_size:
-                    chunk_text = " ".join(current_chunk).strip()
-                    chunks.append(
-                        {
-                            "content": chunk_text,
-                            "page_start": start_page,
-                            "page_end": end_page,
-                        }
-                    )
+                    chunks.append(build_chunk(current_chunk))
 
                     if overlap > 0 and current_length > overlap:
-                        # Retain trailing overlap characters to preserve context
-                        overlap_text = chunk_text[-overlap:]
-                        current_chunk = [overlap_text]
-                        current_length = len(overlap_text)
-                        start_page = end_page
+                        overlap_entries: List[Dict[str, Any]] = []
+                        overlap_length = 0
+                        for item in reversed(current_chunk):
+                            overlap_entries.insert(0, item)
+                            overlap_length += len(item["sentence"]) + 1
+                            if overlap_length >= overlap:
+                                break
+                        current_chunk = overlap_entries
+                        current_length = sum(len(item["sentence"]) + 1 for item in current_chunk)
                     else:
                         current_chunk = []
                         current_length = 0
-                        start_page = None
-                        end_page = None
 
         if current_chunk:
-            chunks.append(
-                {
-                    "content": " ".join(current_chunk).strip(),
-                    "page_start": start_page,
-                    "page_end": end_page,
-                }
-            )
+            chunks.append(build_chunk(current_chunk))
 
         return chunks
 
@@ -442,11 +436,11 @@ class DocumentProcessor:
         if value is None:
             return None
 
-        if isinstance(value, date):
-            return value
-
         if isinstance(value, datetime):
             return value.date()
+
+        if isinstance(value, date):
+            return value
 
         str_value = str(value).strip()
         if not str_value:
@@ -489,12 +483,40 @@ class DocumentProcessor:
         if not str_value:
             return None
 
-        cleaned = re.sub(r"[^\d\.\-]", "", str_value)
+        is_negative = False
+
+        if str_value.startswith("(") and str_value.endswith(")"):
+            is_negative = True
+            str_value = str_value[1:-1]
+
+        normalized = (
+            str_value.replace("\u2212", "-")
+            .replace("\u2013", "-")
+            .replace("\u2014", "-")
+            .strip()
+        )
+
+        if normalized.startswith("-"):
+            is_negative = True
+            normalized = normalized[1:]
+        if normalized.endswith("-"):
+            is_negative = True
+            normalized = normalized[:-1]
+
+        normalized = re.sub(r"[^0-9\.,-]", "", normalized)
+        normalized = normalized.replace(",", "")
+        # Remove any embedded minus characters that may remain after stripping
+        normalized = normalized.replace("-", "").strip()
+
+        if not normalized:
+            return None
 
         try:
-            return Decimal(cleaned)
+            amount = Decimal(normalized)
         except (InvalidOperation, ValueError):
             return None
+
+        return -amount if is_negative else amount
 
     def _parse_bool(self, value: Any) -> bool:
         if isinstance(value, bool):
