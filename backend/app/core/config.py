@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # Anthropic (optional)
     ANTHROPIC_API_KEY: str = ""
     
+    # Google Gemini (optional)
+    GOOGLE_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-1.5-pro"
+    LLM_PROVIDER: str = "auto"  # Options: auto, groq, openai, gemini, ollama
+    
     # Groq (optional)
     GROK_API_KEY: str = ""
     GROK_MODEL: str = "openai/gpt-oss-20b"

@@ -96,37 +96,53 @@ class VectorStore:
     
     def _ensure_extension(self):
         """
-        Ensure pgvector extension is enabled
-        
-        TODO: Implement this method
-        - Execute: CREATE EXTENSION IF NOT EXISTS vector;
-        - Create embeddings table if not exists
+        Ensure pgvector extension is enabled and required structures exist.
         """
         try:
-            # Enable pgvector extension
             self.db.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            
-            # Create embeddings table
-            # Dimension determined by active embedding provider
-            dimension = self.embedding_dimension
-            
+
+            dimension = int(self.embedding_dimension)
             create_table_sql = f"""
             CREATE TABLE IF NOT EXISTS document_embeddings (
                 id SERIAL PRIMARY KEY,
                 document_id INTEGER,
                 fund_id INTEGER,
                 content TEXT NOT NULL,
-                embedding vector({dimension}),
-                metadata JSONB,
+                embedding vector({dimension}) NOT NULL,
+                metadata JSONB DEFAULT '{{}}'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            
-            CREATE INDEX IF NOT EXISTS document_embeddings_embedding_idx 
-            ON document_embeddings USING ivfflat (embedding vector_cosine_ops)
-            WITH (lists = 100);
+            )
             """
-            
             self.db.execute(text(create_table_sql))
+
+            self.db.execute(
+                text(
+                    """
+                    CREATE INDEX IF NOT EXISTS document_embeddings_fund_idx
+                    ON document_embeddings (fund_id)
+                    """
+                )
+            )
+
+            self.db.execute(
+                text(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1
+                            FROM pg_indexes
+                            WHERE schemaname = current_schema()
+                              AND indexname = 'document_embeddings_embedding_idx'
+                        ) THEN
+                            CREATE INDEX document_embeddings_embedding_idx
+                            ON document_embeddings USING ivfflat (embedding vector_cosine_ops)
+                            WITH (lists = 100);
+                        END IF;
+                    END$$;
+                    """
+                )
+            )
             self.db.commit()
         except Exception as e:
             print(f"Error ensuring pgvector extension: {e}")
@@ -142,27 +158,30 @@ class VectorStore:
         - Store metadata as JSONB
         """
         try:
-            # Generate embedding
             embedding = await self._get_embedding(content)
             if hasattr(embedding, "tolist"):
                 embedding_list = embedding.tolist()
             else:
                 embedding_list = [float(x) for x in embedding]
             metadata = metadata or {}
-            
-            # Insert into database
-            insert_sql = text("""
+
+            insert_sql = text(
+                """
                 INSERT INTO document_embeddings (document_id, fund_id, content, embedding, metadata)
                 VALUES (:document_id, :fund_id, :content, CAST(:embedding AS vector), CAST(:metadata AS jsonb))
-            """)
-            
-            self.db.execute(insert_sql, {
-                "document_id": metadata.get("document_id"),
-                "fund_id": metadata.get("fund_id"),
-                "content": content,
-                "embedding": json.dumps(embedding_list),
-                "metadata": json.dumps(metadata)
-            })
+                """
+            )
+
+            self.db.execute(
+                insert_sql,
+                {
+                    "document_id": metadata.get("document_id"),
+                    "fund_id": metadata.get("fund_id"),
+                    "content": content,
+                    "embedding": self._to_vector_literal(embedding_list),
+                    "metadata": json.dumps(metadata),
+                },
+            )
         except Exception as e:
             print(f"Error adding document: {e}")
             self.db.rollback()
@@ -192,22 +211,32 @@ class VectorStore:
             List of similar documents with scores
         """
         try:
-            # Generate query embedding
             query_embedding = await self._get_embedding(query)
-            embedding_list = query_embedding.tolist()
-            
-            # Build query with optional filters
-            where_clause = ""
+            params: Dict[str, Any] = {
+                "query_embedding": self._to_vector_literal(query_embedding.tolist()),
+                "k": k,
+            }
+
+            where_clauses: List[str] = []
             if filter_metadata:
-                conditions = []
+                direct_keys = {"document_id", "fund_id"}
+                metadata_filters: Dict[str, Any] = {}
                 for key, value in filter_metadata.items():
-                    if key in ["document_id", "fund_id"]:
-                        conditions.append(f"{key} = {value}")
-                if conditions:
-                    where_clause = "WHERE " + " AND ".join(conditions)
-            
-            # Search using cosine distance (<=> operator)
-            search_sql = text(f"""
+                    if key in direct_keys:
+                        where_clauses.append(f"{key} = :{key}")
+                        params[key] = value
+                    else:
+                        metadata_filters[key] = value
+                if metadata_filters:
+                    where_clauses.append("metadata @> :metadata_filter")
+                    params["metadata_filter"] = json.dumps(metadata_filters)
+
+            where_clause = ""
+            if where_clauses:
+                where_clause = "WHERE " + " AND ".join(where_clauses)
+
+            search_sql = text(
+                f"""
                 SELECT 
                     id,
                     document_id,
@@ -219,14 +248,11 @@ class VectorStore:
                 {where_clause}
                 ORDER BY embedding <=> CAST(:query_embedding AS vector)
                 LIMIT :k
-            """)
-            
-            result = self.db.execute(search_sql, {
-                "query_embedding": str(embedding_list),
-                "k": k
-            })
-            
-            # Format results
+                """
+            )
+
+            result = self.db.execute(search_sql, params)
+
             results = []
             for row in result:
                 metadata = row[4]
@@ -235,14 +261,16 @@ class VectorStore:
                         metadata = json.loads(metadata)
                     except json.JSONDecodeError:
                         pass
-                results.append({
-                    "id": row[0],
-                    "document_id": row[1],
-                    "fund_id": row[2],
-                    "content": row[3],
-                    "metadata": metadata,
-                    "score": float(row[5])
-                })
+                results.append(
+                    {
+                        "id": row[0],
+                        "document_id": row[1],
+                        "fund_id": row[2],
+                        "content": row[3],
+                        "metadata": metadata,
+                        "score": float(row[5]) if row[5] is not None else None,
+                    }
+                )
             
             return results
         except Exception as e:
@@ -277,3 +305,7 @@ class VectorStore:
         except Exception as e:
             print(f"Error clearing vector store: {e}")
             self.db.rollback()
+    
+    def _to_vector_literal(self, embedding: Sequence[float]) -> str:
+        """Convert embedding data into the pgvector literal representation."""
+        return "[" + ", ".join(f"{float(value):.8f}" for value in embedding) + "]"

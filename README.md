@@ -278,18 +278,18 @@ CREATE TABLE documents (
 
 ### Phase 3: Vector Store & RAG
 
-- [ ] pgvector setup (PostgreSQL extension)
-- [ ] Embedding generation (OpenAI/local)
-- [ ] Similarity search using pgvector operators
-- [ ] LangChain integration
-- [ ] Basic chat interface
+- [x] pgvector setup (PostgreSQL extension)
+- [x] Embedding generation (OpenAI/local)
+- [x] Similarity search using pgvector operators
+- [x] LangChain integration
+- [x] Basic chat interface
 
 ### Phase 4: Fund Metrics Calculation
 
-- [ ] DPI calculation function
-- [ ] IRR calculation function
-- [ ] Metrics API endpoints
-- [ ] Query engine integration
+- [x] DPI calculation function
+- [x] IRR calculation function
+- [x] Metrics API endpoints
+- [x] Query engine integration
 
 ---
 
@@ -341,6 +341,8 @@ cp .env.example .env
 # OPENAI_API_KEY=sk-...
 # DATABASE_URL=postgresql://user:password@localhost:5432/funddb
 ```
+
+> **Tip:** If you prefer NVIDIA embeddings, populate `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`, and `NVIDIA_EMBEDDING_MODEL`. The backend auto-detects these keys and uses the NVIDIA endpoint for chunk embeddings while falling back to OpenAI or local sentence-transformers when unset.
 
 3. **Start with Docker Compose**
 
@@ -825,25 +827,27 @@ llm = Ollama(
 2. **Install package**
 
 ```bash
-pip install langchain-google-genai
+pip install google-generativeai
 ```
 
 3. **Update .env**
 
 ```bash
 GOOGLE_API_KEY=your-gemini-api-key
+GEMINI_MODEL=models/gemini-flash-lite-latest
 LLM_PROVIDER=gemini
 ```
 
 4. **Use in code**
 
 ```python
-from langchain_google_genai import ChatGoogleGenerativeAI
+import os
+import google.generativeai as genai
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
-    google_api_key=os.getenv("GOOGLE_API_KEY")
-)
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+model = genai.GenerativeModel(os.getenv("GEMINI_MODEL", "models/gemini-flash-lite-latest"))
+response = model.generate_content("Hello Gemini!")
+print(response.text)
 ```
 
 **Pros**: Free, fast, good quality
@@ -1115,3 +1119,6 @@ Adjustments = Σ (Rebalance of Distribution + Rebalance of Capital Call)
 **Version**: 1.0  
 **Last Updated**: 2025-10-06  
 **Author**: InterOpera-Apps Hiring Team
+
+
+

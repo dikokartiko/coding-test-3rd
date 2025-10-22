@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/init_pgvector.sql:/docker-entrypoint-initdb.d/init_pgvector.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U funduser"]
+      test: ["CMD-SHELL", "pg_isready -U funduser -d funddb"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,6 +48,10 @@ services:
       - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
       - NVIDIA_EMBEDDING_MODEL=${NVIDIA_EMBEDDING_MODEL:-nvidia/nv-embedqa-e5-v5}
       - NVIDIA_BASE_URL=${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-models/gemini-flash-lite-latest}
+      - LLM_PROVIDER=${LLM_PROVIDER:-auto}
+      - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.7}
       - GROK_API_KEY=${GROK_API_KEY:-}
       - GROK_MODEL=${GROK_MODEL:-openai/gpt-oss-20b}
       - GROK_BASE_URL=${GROK_BASE_URL:-https://api.x.ai/v1}
@@ -80,6 +84,10 @@ services:
       - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
       - NVIDIA_EMBEDDING_MODEL=${NVIDIA_EMBEDDING_MODEL:-nvidia/nv-embedqa-e5-v5}
       - NVIDIA_BASE_URL=${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-models/gemini-flash-lite-latest}
+      - LLM_PROVIDER=${LLM_PROVIDER:-auto}
+      - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.7}
       - GROK_API_KEY=${GROK_API_KEY:-}
       - GROK_MODEL=${GROK_MODEL:-openai/gpt-oss-20b}
       - GROK_BASE_URL=${GROK_BASE_URL:-https://api.x.ai/v1}

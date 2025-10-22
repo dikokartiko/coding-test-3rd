@@ -18,9 +18,13 @@ def dummy_session():
             self.statements = []
             self.commit_called = False
             self.rollback_called = False
+            self.next_result = []
 
         def execute(self, statement, params=None):
             self.statements.append((statement, params))
+            result = list(self.next_result)
+            self.next_result = []
+            return result
 
         def commit(self):
             self.commit_called = True
@@ -62,3 +66,35 @@ async def test_add_document_does_not_commit(vector_store: VectorStore, dummy_ses
     assert len(dummy_session.statements) == 1
     _, params = dummy_session.statements[0]
     assert json.loads(params["metadata"]) == metadata
+    assert params["embedding"].startswith("[0.10000000, 0.20000000")
+
+
+@pytest.mark.asyncio
+async def test_similarity_search_builds_filters(vector_store: VectorStore, dummy_session) -> None:
+    dummy_session.next_result = [
+        (1, 7, 9, "content", json.dumps({"section": "overview"}), 0.91)
+    ]
+
+    results = await vector_store.similarity_search(
+        query="tes",
+        k=2,
+        filter_metadata={
+            "fund_id": 9,
+            "document_id": 7,
+            "section": "overview",
+        },
+    )
+
+    assert len(dummy_session.statements) == 1
+    statement, params = dummy_session.statements[0]
+    statement_sql = str(statement)
+    assert "fund_id = :fund_id" in statement_sql
+    assert "document_id = :document_id" in statement_sql
+    assert "metadata @> :metadata_filter" in statement_sql
+
+    assert params["fund_id"] == 9
+    assert params["document_id"] == 7
+    assert json.loads(params["metadata_filter"]) == {"section": "overview"}
+
+    assert len(results) == 1
+    assert results[0]["score"] == pytest.approx(0.91)

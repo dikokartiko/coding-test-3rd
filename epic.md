@@ -18,12 +18,11 @@ The following **core functionalities are NOT implemented** and need to be built 
 
 #### 2. Vector Store & RAG System (Phase 3) - **CRITICAL**
 
-- [ ] Text chunking strategy implementation
-- [ ] embedding generation
-- [ ] FAISS index creation and management
-- [ ] Semantic search implementation
-- [ ] Context retrieval for LLM
-- [ ] Prompt engineering for accurate responses
+- [x] Text chunking strategy implementation
+- [x] embedding generation
+- [x] Semantic search implementation (pgvector)
+- [x] Context retrieval for LLM
+- [x] Prompt engineering for accurate responses
 
 **Files to implement:**
 
@@ -34,12 +33,12 @@ The following **core functionalities are NOT implemented** and need to be built 
 
 #### 3. Query Engine & Intent Classification (Phase 3-4) - **CRITICAL**
 
-- [ ] Intent classifier (calculation vs definition vs retrieval)
-- [ ] Query router logic
-- [ ] LLM integration
-- [ ] Response formatting
-- [ ] Source citation
-- [ ] Conversation context management
+- [x] Intent classifier (calculation vs definition vs retrieval)
+- [x] Query router logic
+- [x] LLM integration
+- [x] Response formatting
+- [x] Source citation
+- [x] Conversation context management
 
 **Files to implement:**
 
@@ -76,18 +75,18 @@ The following **core functionalities are NOT implemented** and need to be built 
 
 ### Phase 3: Vector Store & RAG
 
-- [ ] pgvector setup (PostgreSQL extension)
-- [ ] Embedding generation (OpenAI/local)
-- [ ] Similarity search using pgvector operators
-- [ ] LangChain integration
-- [ ] Basic chat interface
+- [x] pgvector setup (PostgreSQL extension)
+- [x] Embedding generation (OpenAI/local)
+- [x] Similarity search using pgvector operators
+- [x] LangChain integration
+- [x] Basic chat interface
 
 ### Phase 4: Fund Metrics Calculation
 
-- [ ] DPI calculation function
-- [ ] IRR calculation function
-- [ ] Metrics API endpoints
-- [ ] Query engine integration
+- [x] DPI calculation function
+- [x] IRR calculation function
+- [x] Metrics API endpoints
+- [x] Query engine integration
 
 ---
 

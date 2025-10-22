@@ -1,15 +1,70 @@
 """
 Query engine service for RAG-based question answering
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 import time
+import asyncio
+from types import SimpleNamespace
 from langchain_openai import ChatOpenAI
 from langchain_community.llms import Ollama
-from langchain.prompts import ChatPromptTemplate
 from app.core.config import settings
 from app.services.vector_store import VectorStore
 from app.services.metrics_calculator import MetricsCalculator
+from app.services.rag_engine import RAGEngine
 from sqlalchemy.orm import Session
+
+try:  # Optional dependency for Google Gemini
+    import google.generativeai as genai
+except ImportError:  # pragma: no cover - runtime guard
+    genai = None  # type: ignore
+
+
+class _GeminiChat:
+    """Lightweight wrapper to mimic LangChain chat interface for Gemini."""
+
+    def __init__(self, model: str, api_key: str, temperature: float = 0.0) -> None:
+        if genai is None:  # pragma: no cover - dependency guard
+            raise RuntimeError(
+                "google-generativeai is not installed. "
+                "Please run `pip install google-generativeai`."
+            )
+        genai.configure(api_key=api_key)
+        self._model = genai.GenerativeModel(model)
+        self._temperature = temperature
+
+    async def ainvoke(self, messages: Sequence[Any]) -> Any:
+        return await asyncio.to_thread(self.invoke, messages)
+
+    def invoke(self, messages: Sequence[Any]) -> Any:
+        prompt = self._format_messages(messages)
+        response = self._model.generate_content(
+            prompt,
+            generation_config={"temperature": self._temperature},
+        )
+        content = getattr(response, "text", None)
+        if not content:
+            content = self._extract_text_from_candidates(response)
+        return SimpleNamespace(content=content or "")
+
+    def _extract_text_from_candidates(self, response: Any) -> str:
+        text_parts: List[str] = []
+        for candidate in getattr(response, "candidates", []) or []:
+            content = getattr(candidate, "content", None)
+            parts = getattr(content, "parts", None) if content else None
+            if parts:
+                for part in parts:
+                    value = getattr(part, "text", None)
+                    if value:
+                        text_parts.append(value)
+        return "\n".join(text_parts)
+
+    def _format_messages(self, messages: Sequence[Any]) -> str:
+        formatted: List[str] = []
+        for message in messages:
+            role = getattr(message, "type", getattr(message, "role", "user"))
+            content = getattr(message, "content", str(message))
+            formatted.append(f"{role}: {content}")
+        return "\n".join(formatted)
 
 
 class QueryEngine:
@@ -17,29 +72,71 @@ class QueryEngine:
     
     def __init__(self, db: Session):
         self.db = db
-        self.vector_store = VectorStore()
+        self.vector_store = VectorStore(db)
         self.metrics_calculator = MetricsCalculator(db)
         self.llm = self._initialize_llm()
+        self.rag_engine = RAGEngine(self.vector_store, self.llm)
     
     def _initialize_llm(self):
-        """Initialize LLM"""
-        if settings.GROK_API_KEY:
-            grok_base_url = settings.GROK_BASE_URL.rstrip("/")
-            return ChatOpenAI(
-                model=settings.GROK_MODEL,
-                temperature=0,
-                api_key=settings.GROK_API_KEY,
-                base_url=grok_base_url
-            )
-        elif settings.OPENAI_API_KEY:
-            return ChatOpenAI(
-                model=settings.OPENAI_MODEL,
-                temperature=0,
-                openai_api_key=settings.OPENAI_API_KEY
-            )
-        else:
-            # Fallback to local LLM
-            return Ollama(model="llama2")
+        """Initialize LLM based on configured provider priority."""
+        provider = (settings.LLM_PROVIDER or "auto").strip().lower()
+        
+        if provider == "auto":
+            # Groq (xAI) takes precedence when available
+            if settings.GROK_API_KEY:
+                return self._build_groq_llm()
+            if settings.OPENAI_API_KEY:
+                return self._build_openai_llm()
+            if settings.GOOGLE_API_KEY:
+                return self._build_gemini_llm()
+            return self._build_local_llm()
+        
+        if provider == "groq":
+            if not settings.GROK_API_KEY:
+                raise RuntimeError("LLM_PROVIDER=groq requires GROK_API_KEY to be set")
+            return self._build_groq_llm()
+        
+        if provider == "openai":
+            if not settings.OPENAI_API_KEY:
+                raise RuntimeError("LLM_PROVIDER=openai requires OPENAI_API_KEY to be set")
+            return self._build_openai_llm()
+        
+        if provider == "gemini":
+            if not settings.GOOGLE_API_KEY:
+                raise RuntimeError("LLM_PROVIDER=gemini requires GOOGLE_API_KEY to be set")
+            return self._build_gemini_llm()
+        
+        if provider == "ollama":
+            return self._build_local_llm()
+        
+        raise RuntimeError(f"Unsupported LLM_PROVIDER value: {settings.LLM_PROVIDER}")
+    
+    def _build_groq_llm(self):
+        grok_base_url = settings.GROK_BASE_URL.rstrip("/")
+        return ChatOpenAI(
+            model=settings.GROK_MODEL,
+            temperature=0,
+            api_key=settings.GROK_API_KEY,
+            base_url=grok_base_url,
+        )
+    
+    def _build_openai_llm(self):
+        return ChatOpenAI(
+            model=settings.OPENAI_MODEL,
+            temperature=0,
+            openai_api_key=settings.OPENAI_API_KEY,
+        )
+    
+    def _build_gemini_llm(self):
+        return _GeminiChat(
+            model=settings.GEMINI_MODEL,
+            api_key=settings.GOOGLE_API_KEY,
+            temperature=0.0,
+        )
+    
+    def _build_local_llm(self):
+        # Fallback to local LLM via Ollama
+        return Ollama(model="llama2")
     
     async def process_query(
         self, 
@@ -65,10 +162,10 @@ class QueryEngine:
         
         # Step 2: Retrieve relevant context from vector store
         filter_metadata = {"fund_id": fund_id} if fund_id else None
-        relevant_docs = await self.vector_store.similarity_search(
+        relevant_docs = await self.rag_engine.retrieve_documents(
             query=query,
             k=settings.TOP_K_RESULTS,
-            filter_metadata=filter_metadata
+            metadata_filter=filter_metadata
         )
         
         # Step 3: Calculate metrics if needed
@@ -145,71 +242,10 @@ class QueryEngine:
         metrics: Optional[Dict[str, Any]],
         conversation_history: List[Dict[str, str]]
     ) -> str:
-        """Generate response using LLM"""
-        
-        # Build context string
-        context_str = "\n\n".join([
-            f"[Source {i+1}]\n{doc['content']}"
-            for i, doc in enumerate(context[:3])  # Use top 3 sources
-        ])
-        
-        # Build metrics string
-        metrics_str = ""
-        if metrics:
-            metrics_str = "\n\nAvailable Metrics:\n"
-            for key, value in metrics.items():
-                if value is not None:
-                    metrics_str += f"- {key.upper()}: {value}\n"
-        
-        # Build conversation history string
-        history_str = ""
-        if conversation_history:
-            history_str = "\n\nPrevious Conversation:\n"
-            for msg in conversation_history[-3:]:  # Last 3 messages
-                history_str += f"{msg['role']}: {msg['content']}\n"
-        
-        # Create prompt
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a financial analyst assistant specializing in private equity fund performance.
-
-Your role:
-- Answer questions about fund performance using provided context
-- Calculate metrics like DPI, IRR when asked
-- Explain complex financial terms in simple language
-- Always cite your sources from the provided documents
-
-When calculating:
-- Use the provided metrics data
-- Show your work step-by-step
-- Explain any assumptions made
-
-Format your responses:
-- Be concise but thorough
-- Use bullet points for lists
-- Bold important numbers using **number**
-- Provide context for metrics"""),
-            ("user", """Context from documents:
-{context}
-{metrics}
-{history}
-
-Question: {query}
-
-Please provide a helpful answer based on the context and metrics provided.""")
-        ])
-        
-        # Generate response
-        messages = prompt.format_messages(
-            context=context_str,
-            metrics=metrics_str,
-            history=history_str,
-            query=query
+        """Delegate to the shared RAG engine for answer construction."""
+        return await self.rag_engine.generate_answer(
+            query=query,
+            documents=context,
+            metrics=metrics,
+            conversation_history=conversation_history,
         )
-        
-        try:
-            response = self.llm.invoke(messages)
-            if hasattr(response, 'content'):
-                return response.content
-            return str(response)
-        except Exception as e:
-            return f"I apologize, but I encountered an error generating a response: {str(e)}"
