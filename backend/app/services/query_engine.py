@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.services.vector_store import VectorStore
 from app.services.metrics_calculator import MetricsCalculator
 from app.services.rag_engine import RAGEngine
+from app.models.fund import Fund
 from sqlalchemy.orm import Session
 
 try:  # Optional dependency for Google Gemini
@@ -139,10 +140,11 @@ class QueryEngine:
         return Ollama(model="llama2")
     
     async def process_query(
-        self, 
-        query: str, 
+        self,
+        query: str,
         fund_id: Optional[int] = None,
-        conversation_history: List[Dict[str, str]] = None
+        fund_ids: Optional[List[int]] = None,
+        conversation_history: List[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """
         Process a user query using RAG
@@ -170,8 +172,33 @@ class QueryEngine:
         
         # Step 3: Calculate metrics if needed
         metrics = None
-        if intent == "calculation" and fund_id:
-            metrics = self.metrics_calculator.calculate_all_metrics(fund_id)
+        if intent == "calculation":
+            if fund_ids and len(fund_ids) > 1:
+                aggregates = self.metrics_calculator.aggregate_funds(fund_ids)
+                fund_names = {
+                    fund.id: fund.name
+                    for fund in self.db.query(Fund.id, Fund.name).filter(Fund.id.in_(fund_ids)).all()
+                }
+                metrics = {
+                    "comparison": [
+                        {
+                            **aggregate,
+                            "fund_name": fund_names.get(aggregate["fund_id"]),
+                            "cash_flows": [
+                                {
+                                    **flow,
+                                    "date": flow["date"].isoformat()
+                                    if hasattr(flow["date"], "isoformat")
+                                    else str(flow["date"]),
+                                }
+                                for flow in aggregate["cash_flows"]
+                            ],
+                        }
+                        for aggregate in aggregates
+                    ]
+                }
+            elif fund_id:
+                metrics = self.metrics_calculator.calculate_all_metrics(fund_id)
         
         # Step 4: Generate response using LLM
         answer = await self._generate_response(
@@ -197,7 +224,8 @@ class QueryEngine:
                 for doc in relevant_docs
             ],
             "metrics": metrics,
-            "processing_time": round(processing_time, 2)
+            "processing_time": round(processing_time, 2),
+            "intent": intent,
         }
     
     async def _classify_intent(self, query: str) -> str:

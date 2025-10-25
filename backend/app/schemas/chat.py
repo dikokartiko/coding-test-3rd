@@ -1,9 +1,10 @@
 """
 Chat Pydantic schemas
 """
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class ChatMessage(BaseModel):
@@ -11,6 +12,10 @@ class ChatMessage(BaseModel):
     role: str  # 'user' or 'assistant'
     content: str
     timestamp: Optional[datetime] = None
+    intent: Optional[str] = None
+    confidence: Optional[float] = None
+    metrics: Optional[Dict[str, Any]] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ChatQueryRequest(BaseModel):
@@ -18,6 +23,7 @@ class ChatQueryRequest(BaseModel):
     query: str
     fund_id: Optional[int] = None
     conversation_id: Optional[str] = None
+    fund_ids: Optional[List[int]] = None  # For multi-fund intents
 
 
 class SourceDocument(BaseModel):
@@ -33,17 +39,30 @@ class ChatQueryResponse(BaseModel):
     sources: List[SourceDocument] = []
     metrics: Optional[Dict[str, Any]] = None
     processing_time: Optional[float] = None
+    conversation_id: Optional[str] = None
+    intent: Optional[str] = None
 
 
 class ConversationCreate(BaseModel):
     """Conversation creation schema"""
     fund_id: Optional[int] = None
+    title: Optional[str] = None
 
 
 class Conversation(BaseModel):
     """Conversation schema"""
     conversation_id: str
     fund_id: Optional[int] = None
-    messages: List[ChatMessage] = []
+    title: Optional[str] = None
+    messages: List[ChatMessage] = Field(default_factory=list)
     created_at: datetime
+    updated_at: datetime
+
+
+class ConversationSummary(BaseModel):
+    """Summary row for sidebar listings."""
+    conversation_id: str
+    fund_id: Optional[int] = None
+    title: Optional[str] = None
+    last_message: Optional[str] = None
     updated_at: datetime

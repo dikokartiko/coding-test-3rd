@@ -1,13 +1,14 @@
 """
 Fund metrics calculator service
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from decimal import Decimal
 import numpy as np
 import numpy_financial as npf
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.transaction import CapitalCall, Distribution, Adjustment
+from app.services.custom_formula_service import CustomFormulaService
 
 
 class MetricsCalculator:
@@ -15,6 +16,7 @@ class MetricsCalculator:
     
     def __init__(self, db: Session):
         self.db = db
+        self.formula_service = CustomFormulaService(db)
     
     def calculate_all_metrics(self, fund_id: int) -> Dict[str, Any]:
         """Calculate all metrics for a fund"""
@@ -22,6 +24,14 @@ class MetricsCalculator:
         total_distributions = self.calculate_total_distributions(fund_id)
         dpi = self.calculate_dpi(fund_id)
         irr = self.calculate_irr(fund_id)
+        custom_metrics = self.formula_service.evaluate_for_fund(
+            fund_id, {
+                "pic": float(pic) if pic else 0,
+                "total_distributions": float(total_distributions) if total_distributions else 0,
+                "dpi": float(dpi) if dpi else 0,
+                "irr": float(irr) if irr else 0,
+            }
+        )
         
         return {
             "pic": float(pic) if pic else 0,
@@ -31,6 +41,7 @@ class MetricsCalculator:
             "tvpi": None,  # To be implemented
             "rvpi": None,  # To be implemented
             "nav": None,   # To be implemented
+            "custom_metrics": custom_metrics or None,
         }
     
     def calculate_pic(self, fund_id: int) -> Optional[Decimal]:
@@ -275,3 +286,18 @@ class MetricsCalculator:
             }
         
         return {"error": "Unknown metric"}
+
+    def aggregate_funds(self, fund_ids: List[int]) -> List[Dict[str, Any]]:
+        """Return metrics + cash flows for a list of funds."""
+        aggregates: List[Dict[str, Any]] = []
+        for fund_id in fund_ids:
+            metrics = self.calculate_all_metrics(fund_id)
+            cash_flows = self._get_cash_flows(fund_id)
+            aggregates.append(
+                {
+                    "fund_id": fund_id,
+                    "metrics": metrics,
+                    "cash_flows": cash_flows,
+                }
+            )
+        return aggregates

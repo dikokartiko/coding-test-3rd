@@ -1,9 +1,10 @@
 """
 Fund Pydantic schemas
 """
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel
 
 
 class FundBase(BaseModel):
@@ -36,6 +37,7 @@ class FundMetrics(BaseModel):
     pic: Optional[float] = None
     total_distributions: Optional[float] = None
     nav: Optional[float] = None
+    custom_metrics: Optional[Dict[str, float]] = None
 
 
 class Fund(FundBase):
@@ -46,3 +48,17 @@ class Fund(FundBase):
     
     class Config:
         from_attributes = True
+
+
+class CashFlowPoint(BaseModel):
+    date: str
+    amount: float
+    type: str
+
+
+class FundComparisonResult(BaseModel):
+    fund_id: int
+    fund_name: str
+    fund_type: Optional[str] = None
+    metrics: FundMetrics
+    cash_flows: List[CashFlowPoint]

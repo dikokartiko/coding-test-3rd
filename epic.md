@@ -94,18 +94,18 @@ The following **core functionalities are NOT implemented** and need to be built 
 
 ### Phase 5: Dashboard & Polish
 
-- [ ] Fund list page with metrics
-- [ ] Fund detail page with charts
-- [ ] Transaction tables with pagination
-- [ ] Error handling improvements
-- [ ] Loading states
+- [x] Fund list page with metrics
+- [x] Fund detail page with charts
+- [x] Transaction tables with pagination
+- [x] Error handling improvements
+- [x] Loading states
 
 ### Phase 6: Advanced Features
 
-- [ ] Conversation history
-- [ ] Multi-fund comparison
-- [ ] Excel export
-- [ ] Custom calculation formulas
+- [x] Conversation history
+- [x] Multi-fund comparison
+- [x] Excel export
+- [x] Custom calculation formulas
 - [ ] Test coverage (50%+)
 
 ---

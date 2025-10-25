@@ -7,7 +7,13 @@ from typing import List, Optional
 from app.db.session import get_db
 from app.models.fund import Fund
 from app.models.transaction import CapitalCall, Distribution, Adjustment
-from app.schemas.fund import Fund as FundSchema, FundCreate, FundUpdate, FundMetrics
+from app.schemas.fund import (
+    Fund as FundSchema,
+    FundCreate,
+    FundUpdate,
+    FundMetrics,
+    FundComparisonResult,
+)
 from app.schemas.transaction import (
     CapitalCall as CapitalCallSchema,
     Distribution as DistributionSchema,
@@ -49,6 +55,59 @@ async def create_fund(fund: FundCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_fund)
     return db_fund
+
+
+@router.get("/comparison", response_model=List[FundComparisonResult])
+async def compare_funds(
+    ids: str = Query(..., description="Comma-separated list of fund IDs"),
+    db: Session = Depends(get_db),
+):
+    """Return metrics + cashflow snapshots for multiple funds."""
+    try:
+        fund_ids = [int(value) for value in ids.split(",") if value.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ids must be integers")
+
+    if not fund_ids:
+        raise HTTPException(status_code=400, detail="Provide at least one fund id")
+    if len(fund_ids) > 6:
+        raise HTTPException(status_code=400, detail="Compare up to 6 funds at once")
+
+    funds = (
+        db.query(Fund)
+        .filter(Fund.id.in_(fund_ids))
+        .order_by(Fund.name.asc())
+        .all()
+    )
+    if not funds:
+        raise HTTPException(status_code=404, detail="No funds found")
+
+    calculator = MetricsCalculator(db)
+    aggregates = {item["fund_id"]: item for item in calculator.aggregate_funds(fund_ids)}
+
+    results: List[FundComparisonResult] = []
+    for fund in funds:
+        data = aggregates.get(fund.id)
+        if not data:
+            continue
+        cashflow_points = [
+            {
+                "date": cf["date"].isoformat() if hasattr(cf["date"], "isoformat") else str(cf["date"]),
+                "amount": float(cf["amount"]),
+                "type": cf["type"],
+            }
+            for cf in data["cash_flows"]
+        ]
+        results.append(
+            FundComparisonResult(
+                fund_id=fund.id,
+                fund_name=fund.name,
+                fund_type=fund.fund_type,
+                metrics=FundMetrics(**data["metrics"]),
+                cash_flows=cashflow_points,
+            )
+        )
+    return results
 
 
 @router.get("/{fund_id}", response_model=FundSchema)

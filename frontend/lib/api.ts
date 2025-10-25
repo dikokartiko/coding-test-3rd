@@ -71,28 +71,47 @@ export const fundApi = {
     const response = await api.get(`/api/funds/${fundId}/metrics`)
     return response.data
   },
+
+  compare: async (ids: number[]) => {
+    const response = await api.get('/api/funds/comparison', {
+      params: { ids: ids.join(',') },
+    })
+    return response.data
+  },
 }
 
 // Chat APIs
 export const chatApi = {
-  query: async (query: string, fundId?: number, conversationId?: string) => {
+  query: async (query: string, fundId?: number, conversationId?: string, fundIds?: number[]) => {
     const response = await api.post('/api/chat/query', {
       query,
       fund_id: fundId,
       conversation_id: conversationId,
+      fund_ids: fundIds,
     })
     return response.data
   },
   
-  createConversation: async (fundId?: number) => {
+  createConversation: async (fundId?: number, title?: string) => {
     const response = await api.post('/api/chat/conversations', {
       fund_id: fundId,
+      title,
     })
+    return response.data
+  },
+
+  listConversations: async () => {
+    const response = await api.get('/api/chat/conversations')
     return response.data
   },
   
   getConversation: async (conversationId: string) => {
     const response = await api.get(`/api/chat/conversations/${conversationId}`)
+    return response.data
+  },
+
+  deleteConversation: async (conversationId: string) => {
+    const response = await api.delete(`/api/chat/conversations/${conversationId}`)
     return response.data
   },
 }
@@ -102,6 +121,45 @@ export const metricsApi = {
   getFundMetrics: async (fundId: number, metric?: string) => {
     const params = metric ? { metric } : {}
     const response = await api.get(`/api/metrics/funds/${fundId}/metrics`, { params })
+    return response.data
+  },
+}
+
+export const exportApi = {
+  request: async (fundIds: number[], filters: Record<string, any> = {}) => {
+    const response = await api.post('/api/exports/', {
+      fund_ids: fundIds,
+      filters,
+    })
+    return response.data
+  },
+  status: async (exportId: string) => {
+    const response = await api.get(`/api/exports/${exportId}`)
+    return response.data
+  },
+  download: async (exportId: string) => {
+    const response = await api.get(`/api/exports/${exportId}/download`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+}
+
+export const formulaApi = {
+  list: async () => {
+    const response = await api.get('/api/formulas/')
+    return response.data
+  },
+  create: async (payload: any) => {
+    const response = await api.post('/api/formulas/', payload)
+    return response.data
+  },
+  update: async (id: number, payload: any) => {
+    const response = await api.put(`/api/formulas/${id}`, payload)
+    return response.data
+  },
+  delete: async (id: number) => {
+    const response = await api.delete(`/api/formulas/${id}`)
     return response.data
   },
 }
