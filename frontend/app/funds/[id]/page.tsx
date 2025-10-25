@@ -1,184 +1,208 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { fundApi } from '@/lib/api'
-import { formatCurrency, formatPercentage, formatDate } from '@/lib/utils'
-import { Loader2, TrendingUp, DollarSign, Calendar } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { fundApi, metricsApi } from '@/lib/api'
+import { formatCurrency, formatPercentage } from '@/lib/utils'
+import { TrendingUp, DollarSign, Activity } from 'lucide-react'
+import { DataState } from '@/components/DataState'
+import {
+  MetricSummarySkeleton,
+  ChartSkeleton,
+  TableSkeleton,
+} from '@/components/Skeletons'
+import { CashFlowChart, CashFlowItem } from '@/components/charts/CashFlowChart'
+import { TransactionTable } from '@/components/TransactionTable'
 
 export default function FundDetailPage() {
   const params = useParams()
-  const fundId = parseInt(params.id as string)
+  const fundId = Number(params.id)
+  const invalidFundId = Number.isNaN(fundId)
 
-  const { data: fund, isLoading: fundLoading } = useQuery({
+  const {
+    data: fund,
+    isLoading: fundLoading,
+    error: fundError,
+    refetch: refetchFund,
+  } = useQuery({
     queryKey: ['fund', fundId],
-    queryFn: () => fundApi.get(fundId)
+    queryFn: () => fundApi.get(fundId),
+    enabled: !invalidFundId,
   })
 
-  const { data: capitalCalls } = useQuery({
-    queryKey: ['transactions', fundId, 'capital_calls'],
-    queryFn: () => fundApi.getTransactions(fundId, 'capital_calls', 1, 10)
+  const {
+    data: dpiBreakdown,
+    isLoading: breakdownLoading,
+    error: breakdownError,
+    refetch: refetchBreakdown,
+  } = useQuery({
+    queryKey: ['fund', fundId, 'dpi-breakdown'],
+    queryFn: () => metricsApi.getFundMetrics(fundId, 'dpi'),
+    enabled: !invalidFundId,
   })
 
-  const { data: distributions } = useQuery({
-    queryKey: ['transactions', fundId, 'distributions'],
-    queryFn: () => fundApi.getTransactions(fundId, 'distributions', 1, 10)
-  })
+  const breakdownErr = breakdownError ? (breakdownError as Error) : null
+
+  const cashFlowData: CashFlowItem[] = useMemo(() => {
+    const transactions =
+      dpiBreakdown?.breakdown?.transactions ?? {
+        capital_calls: [],
+        distributions: [],
+      }
+
+    const calls = (transactions.capital_calls || []).map((call: any) => ({
+      date: call.date,
+      amount: -Math.abs(call.amount),
+      type: 'capital_call' as const,
+    }))
+
+    const distributions = (transactions.distributions || []).map((dist: any) => ({
+      date: dist.date,
+      amount: Math.abs(dist.amount),
+      type: 'distribution' as const,
+    }))
+
+    return [...calls, ...distributions]
+  }, [dpiBreakdown])
+
+  if (invalidFundId) {
+    return (
+      <DataState
+        status="error"
+        title="Invalid fund id"
+        description="Please return to the funds list and pick a valid fund."
+      />
+    )
+  }
 
   if (fundLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="space-y-8">
+        <MetricSummarySkeleton />
+        <ChartSkeleton />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <TableSkeleton />
+          <TableSkeleton />
+        </div>
       </div>
     )
   }
 
-  if (!fund) {
-    return <div>Fund not found</div>
+  if (fundError || !fund) {
+    return (
+      <DataState
+        status="error"
+        title="Unable to load fund"
+        description={(fundError as Error)?.message || 'Fund not found'}
+        actionLabel="Retry"
+        onAction={() => refetchFund()}
+      />
+    )
   }
 
   const metrics = fund.metrics || {}
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">{fund.name}</h1>
-        <div className="flex items-center space-x-4 text-gray-600">
+    <div className="mx-auto max-w-7xl space-y-8">
+      <header className="space-y-2">
+        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+          Fund overview
+        </p>
+        <h1 className="text-4xl font-bold text-gray-900">{fund.name}</h1>
+        <div className="flex flex-wrap gap-4 text-gray-600">
           {fund.gp_name && <span>GP: {fund.gp_name}</span>}
           {fund.vintage_year && <span>Vintage: {fund.vintage_year}</span>}
           {fund.fund_type && <span>Type: {fund.fund_type}</span>}
         </div>
-      </div>
+      </header>
 
-      {/* Metrics Cards */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <MetricCard
-          title="DPI"
-          value={metrics.dpi?.toFixed(2) + 'x' || 'N/A'}
-          description="Distribution to Paid-In"
-          icon={<TrendingUp className="w-6 h-6" />}
-          color="blue"
+      <MetricsGrid metrics={metrics} />
+
+      <CashFlowChart
+        cashFlows={cashFlowData}
+        isLoading={breakdownLoading}
+        error={breakdownErr}
+        onRetry={() => refetchBreakdown()}
+      />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TransactionTable
+          fundId={fundId}
+          type="capital_calls"
+          title="Capital Calls"
         />
-        <MetricCard
-          title="IRR"
-          value={metrics.irr ? formatPercentage(metrics.irr) : 'N/A'}
-          description="Internal Rate of Return"
-          icon={<TrendingUp className="w-6 h-6" />}
-          color="green"
-        />
-        <MetricCard
-          title="Paid-In Capital"
-          value={metrics.pic ? formatCurrency(metrics.pic) : 'N/A'}
-          description="Total capital called"
-          icon={<DollarSign className="w-6 h-6" />}
-          color="purple"
-        />
-        <MetricCard
+        <TransactionTable
+          fundId={fundId}
+          type="distributions"
           title="Distributions"
-          value={metrics.total_distributions ? formatCurrency(metrics.total_distributions) : 'N/A'}
-          description="Total distributions"
-          icon={<DollarSign className="w-6 h-6" />}
-          color="orange"
         />
       </div>
 
-      {/* Transactions Tables */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Capital Calls */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Capital Calls</h2>
-          {capitalCalls && capitalCalls.items.length > 0 ? (
-            <div className="space-y-3">
-              {capitalCalls.items.map((call: any) => (
-                <TransactionRow
-                  key={call.id}
-                  date={call.call_date}
-                  type={call.call_type}
-                  amount={call.amount}
-                  isNegative
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">No capital calls found</p>
-          )}
-        </div>
-
-        {/* Distributions */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Distributions</h2>
-          {distributions && distributions.items.length > 0 ? (
-            <div className="space-y-3">
-              {distributions.items.map((dist: any) => (
-                <TransactionRow
-                  key={dist.id}
-                  date={dist.distribution_date}
-                  type={dist.distribution_type}
-                  amount={dist.amount}
-                  isRecallable={dist.is_recallable}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">No distributions found</p>
-          )}
-        </div>
-      </div>
+      <TransactionTable
+        fundId={fundId}
+        type="adjustments"
+        title="Adjustments"
+      />
     </div>
   )
 }
 
-function MetricCard({ title, value, description, icon, color }: {
-  title: string
-  value: string
-  description: string
-  icon: React.ReactNode
-  color: 'blue' | 'green' | 'purple' | 'orange'
+function MetricsGrid({
+  metrics,
+}: {
+  metrics: Record<string, number | null | undefined>
 }) {
-  const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
-    purple: 'bg-purple-100 text-purple-600',
-    orange: 'bg-orange-100 text-orange-600',
-  }
+  const cards = [
+    {
+      label: 'DPI',
+      value:
+        metrics?.dpi !== undefined ? `${Number(metrics.dpi).toFixed(2)}x` : 'N/A',
+      description: 'Distribution to paid-in capital',
+      icon: <TrendingUp className="h-6 w-6 text-blue-600" />,
+    },
+    {
+      label: 'IRR',
+      value:
+        metrics?.irr !== undefined
+          ? formatPercentage(Number(metrics.irr))
+          : 'N/A',
+      description: 'Annualized performance',
+      icon: <Activity className="h-6 w-6 text-green-600" />,
+    },
+    {
+      label: 'Paid-In Capital',
+      value:
+        metrics?.pic !== undefined ? formatCurrency(Number(metrics.pic)) : 'N/A',
+      description: 'Total contributions from LPs',
+      icon: <DollarSign className="h-6 w-6 text-purple-600" />,
+    },
+    {
+      label: 'Distributions',
+      value:
+        metrics?.total_distributions !== undefined
+          ? formatCurrency(Number(metrics.total_distributions))
+          : 'N/A',
+      description: 'Capital returned to LPs',
+      icon: <DollarSign className="h-6 w-6 text-amber-600" />,
+    },
+  ]
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className={`w-12 h-12 rounded-lg ${colorClasses[color]} flex items-center justify-center mb-4`}>
-        {icon}
-      </div>
-      <h3 className="text-sm font-medium text-gray-600 mb-1">{title}</h3>
-      <p className="text-2xl font-bold text-gray-900 mb-1">{value}</p>
-      <p className="text-xs text-gray-500">{description}</p>
-    </div>
-  )
-}
-
-function TransactionRow({ date, type, amount, isNegative, isRecallable }: {
-  date: string
-  type: string
-  amount: number
-  isNegative?: boolean
-  isRecallable?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-      <div className="flex-1">
-        <p className="text-sm font-medium text-gray-900">{type}</p>
-        <div className="flex items-center space-x-2 mt-1">
-          <Calendar className="w-3 h-3 text-gray-400" />
-          <p className="text-xs text-gray-500">{formatDate(date)}</p>
-          {isRecallable && (
-            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-              Recallable
-            </span>
-          )}
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {cards.map((card) => (
+        <div
+          key={card.label}
+          className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+        >
+          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-gray-50">
+            {card.icon}
+          </div>
+          <p className="text-sm font-medium text-gray-500">{card.label}</p>
+          <p className="text-3xl font-bold text-gray-900">{card.value}</p>
+          <p className="text-xs text-gray-400">{card.description}</p>
         </div>
-      </div>
-      <p className={`text-sm font-semibold ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
-        {isNegative ? '-' : '+'}{formatCurrency(Math.abs(amount))}
-      </p>
+      ))}
     </div>
   )
 }

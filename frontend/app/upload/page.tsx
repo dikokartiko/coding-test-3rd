@@ -1,20 +1,66 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react'
-import { documentApi } from '@/lib/api'
+import { documentApi, fundApi } from '@/lib/api'
+
+type FundSummary = {
+  id: number
+  name: string
+}
 
 export default function UploadPage() {
   const [uploading, setUploading] = useState(false)
+  const [funds, setFunds] = useState<FundSummary[]>([])
+  const [selectedFundId, setSelectedFundId] = useState<number | ''>('')
+  const [fundsLoading, setFundsLoading] = useState(true)
+  const [fundsError, setFundsError] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<{
     status: 'idle' | 'uploading' | 'processing' | 'success' | 'error'
     message?: string
     documentId?: number
   }>({ status: 'idle' })
 
+  useEffect(() => {
+    let isMounted = true
+
+    const loadFunds = async () => {
+      setFundsLoading(true)
+      setFundsError(null)
+      try {
+        const result = await fundApi.list()
+        if (!isMounted) return
+        setFunds(result)
+        if (result.length > 0) {
+          setSelectedFundId(result[0].id)
+        }
+      } catch (error) {
+        if (!isMounted) return
+        setFundsError('Unable to load funds. Please try again later.')
+      } finally {
+        if (isMounted) {
+          setFundsLoading(false)
+        }
+      }
+    }
+
+    loadFunds()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return
+    if (!selectedFundId) {
+      setUploadStatus({
+        status: 'error',
+        message: 'Please select a fund before uploading.'
+      })
+      return
+    }
 
     const file = acceptedFiles[0]
     
@@ -22,7 +68,7 @@ export default function UploadPage() {
     setUploadStatus({ status: 'uploading', message: 'Uploading file...' })
 
     try {
-      const result = await documentApi.upload(file)
+      const result = await documentApi.upload(file, selectedFundId)
       
       setUploadStatus({
         status: 'processing',
@@ -40,7 +86,7 @@ export default function UploadPage() {
       })
       setUploading(false)
     }
-  }, [])
+  }, [selectedFundId])
 
   const pollDocumentStatus = async (documentId: number) => {
     const maxAttempts = 60 // 5 minutes max
@@ -94,7 +140,7 @@ export default function UploadPage() {
       'application/pdf': ['.pdf']
     },
     maxFiles: 1,
-    disabled: uploading
+    disabled: uploading || !selectedFundId || funds.length === 0
   })
 
   return (
@@ -106,13 +152,59 @@ export default function UploadPage() {
         </p>
       </div>
 
+      {/* Fund Selection */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+        <h2 className="text-lg font-semibold mb-2">Select Fund</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Documents must be associated with an existing fund to ensure transactions and metrics are stored correctly.
+        </p>
+
+        {fundsLoading ? (
+          <div className="flex items-center text-sm text-gray-600">
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            Loading funds...
+          </div>
+        ) : fundsError ? (
+          <p className="text-sm text-red-600">{fundsError}</p>
+        ) : funds.length === 0 ? (
+          <div className="text-sm text-gray-700">
+            <p>No funds available. Please create a fund before uploading documents.</p>
+            <a
+              href="/funds"
+              className="inline-flex items-center mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm"
+            >
+              Go to Funds
+            </a>
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="fund-select" className="block text-sm font-medium text-gray-700 mb-1">
+              Fund
+            </label>
+            <select
+              id="fund-select"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={selectedFundId}
+              onChange={(event) => setSelectedFundId(Number(event.target.value))}
+              disabled={uploading}
+            >
+              {funds.map((fund) => (
+                <option key={fund.id} value={fund.id}>
+                  {fund.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
       {/* Upload Area */}
       <div
         {...getRootProps()}
         className={`
           border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition
           ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
-          ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
+          ${(uploading || !selectedFundId || funds.length === 0) ? 'opacity-50 cursor-not-allowed' : ''}
         `}
       >
         <input {...getInputProps()} />

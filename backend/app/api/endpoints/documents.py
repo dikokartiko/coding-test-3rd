@@ -1,7 +1,7 @@
 """
 Document API endpoints
 """
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from typing import List
 import os
@@ -24,7 +24,7 @@ router = APIRouter()
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
-    fund_id: int = None,
+    fund_id: int = Form(None),
     db: Session = Depends(get_db)
 ):
     """Upload and process a PDF document"""
@@ -44,11 +44,13 @@ async def upload_document(
             detail=f"File size exceeds maximum allowed size of {settings.MAX_UPLOAD_SIZE} bytes"
         )
     
-    # Validate fund_id when provided
-    if fund_id is not None:
-        fund_exists = db.query(Fund.id).filter(Fund.id == fund_id).first()
-        if not fund_exists:
-            raise HTTPException(status_code=404, detail=f"Fund with id {fund_id} not found")
+    # Validate fund_id
+    if fund_id is None:
+        raise HTTPException(status_code=400, detail="fund_id is required")
+
+    fund_exists = db.query(Fund.id).filter(Fund.id == fund_id).first()
+    if not fund_exists:
+        raise HTTPException(status_code=404, detail=f"Fund with id {fund_id} not found")
     
     # Create upload directory if it doesn't exist
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
@@ -73,11 +75,10 @@ async def upload_document(
     db.refresh(document)
     
     # Enqueue Celery task
-    fund_identifier = fund_id or 1
     async_result = process_document_task.delay(
         document.id,
         file_path,
-        fund_identifier
+        fund_id
     )
     
     return DocumentUploadResponse(
