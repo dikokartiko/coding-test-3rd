@@ -1,5 +1,6 @@
 import { documentApi } from "@/lib/api";
 import DocumentsLayout from "./layout";
+import { DocumentsList } from "./_components";
 
 export default async function DocumentsPage() {
   // Server-side data fetching
@@ -16,11 +17,8 @@ export default async function DocumentsPage() {
   }
 
   return (
-    <>
-      <DocumentsLayout
-        initialDocuments={initialDocuments}
-        initialError={error}
-      ></DocumentsLayout>
-    </>
+    <DocumentsLayout>
+      <DocumentsList initialDocuments={initialDocuments} initialError={error} />
+    </DocumentsLayout>
   );
 }
