@@ -32,6 +32,12 @@ class MetricsCalculator:
                 "irr": float(irr) if irr else 0,
             }
         )
+        if custom_metrics:
+            custom_metrics = {
+                name: value
+                for name, value in custom_metrics.items()
+                if value is not None
+            }
         
         return {
             "pic": float(pic) if pic else 0,

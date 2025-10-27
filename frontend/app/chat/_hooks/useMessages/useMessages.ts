@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatApi } from "@/lib/api";
-import { deserializeMessages } from "../../_utils/formatting";
+import { deserializeMessages } from "./_utils/formatting";
 import { Message } from "../../page.types";
 
 /**

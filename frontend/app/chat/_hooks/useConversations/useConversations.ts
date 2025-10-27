@@ -87,6 +87,35 @@ export function useConversations() {
   );
 
   /**
+   * Handles selecting a conversation from the sidebar and loading its messages
+   * @param id - The ID of the conversation to select
+   * @param setMessages - Function to update messages state
+   */
+  const handleConversationSelectWithMessages = useCallback(
+    async (id: string, setMessages: (messages: any[]) => void) => {
+      try {
+        const conversation = await handleConversationSelect(id);
+        // Handle empty conversations (no messages) gracefully
+        // The conversation object might have messages in different formats
+        if (conversation && conversation.messages) {
+          // Deserialize messages if needed, otherwise use as-is
+          const messages = Array.isArray(conversation.messages)
+            ? conversation.messages
+            : [];
+          setMessages(messages);
+        } else {
+          setMessages([]);
+        }
+        return conversation;
+      } catch (error: any) {
+        console.error("Error selecting conversation:", error);
+        throw error;
+      }
+    },
+    [handleConversationSelect]
+  );
+
+  /**
    * Handles deleting a conversation
    * @param id - The ID of the conversation to delete
    */
@@ -156,6 +185,7 @@ export function useConversations() {
     loadConversations,
     startConversation,
     handleConversationSelect,
+    handleConversationSelectWithMessages,
     handleDeleteConversation,
     activeConversation,
     conversationTitle,

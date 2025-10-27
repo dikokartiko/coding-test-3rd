@@ -1,4 +1,4 @@
-import { Message } from "../page.types";
+import { Message } from "../../../page.types";
 
 /**
  * Deserializes message data from the API into Message objects

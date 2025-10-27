@@ -5,3 +5,4 @@ export { useConversations } from "./useConversations";
 export { useMessages } from "./useMessages";
 export { useFunds } from "./useFunds";
 export { useChatUI } from "./useChatUI";
+export { useChatSubmission } from "./useChatSubmission";
