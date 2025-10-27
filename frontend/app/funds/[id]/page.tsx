@@ -1,26 +1,39 @@
-'use client'
+"use client";
 
-import { useMemo } from 'react'
-import { useParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
-import { fundApi, metricsApi } from '@/lib/api'
-import { formatCurrency, formatPercentage } from '@/lib/utils'
-import { TrendingUp, DollarSign, Activity, Download, Loader2 } from 'lucide-react'
-import { DataState } from '@/components/DataState'
+import { useMemo } from "react";
+import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { fundApi, metricsApi } from "@/lib/api";
+import { formatCurrency, formatPercentage } from "@/lib/utils";
+import {
+  TrendingUp,
+  DollarSign,
+  Activity,
+  Download,
+  Loader2,
+} from "lucide-react";
+import { DataState } from "@/components/DataState";
 import {
   MetricSummarySkeleton,
   ChartSkeleton,
   TableSkeleton,
-} from '@/components/Skeletons'
-import { CashFlowChart, CashFlowItem } from '@/components/charts/CashFlowChart'
-import { TransactionTable } from '@/components/TransactionTable'
-import { useExcelExport } from '@/hooks/useExcelExport'
+} from "@/components/Skeletons";
+import {
+  CashFlowChart,
+  CashFlowItem,
+} from "@/app/funds/[id]/_components/charts/CashFlowChart";
+import { TransactionTable } from "@/components/TransactionTable";
+import { useExcelExport } from "@/hooks/useExcelExport";
 
 export default function FundDetailPage() {
-  const params = useParams()
-  const fundId = Number(params.id)
-  const invalidFundId = Number.isNaN(fundId)
-  const { triggerExport, status: exportStatus, message: exportMessage } = useExcelExport()
+  const params = useParams();
+  const fundId = Number(params.id);
+  const invalidFundId = Number.isNaN(fundId);
+  const {
+    triggerExport,
+    status: exportStatus,
+    message: exportMessage,
+  } = useExcelExport();
 
   const {
     data: fund,
@@ -28,10 +41,10 @@ export default function FundDetailPage() {
     error: fundError,
     refetch: refetchFund,
   } = useQuery({
-    queryKey: ['fund', fundId],
+    queryKey: ["fund", fundId],
     queryFn: () => fundApi.get(fundId),
     enabled: !invalidFundId,
-  })
+  });
 
   const {
     data: dpiBreakdown,
@@ -39,34 +52,35 @@ export default function FundDetailPage() {
     error: breakdownError,
     refetch: refetchBreakdown,
   } = useQuery({
-    queryKey: ['fund', fundId, 'dpi-breakdown'],
-    queryFn: () => metricsApi.getFundMetrics(fundId, 'dpi'),
+    queryKey: ["fund", fundId, "dpi-breakdown"],
+    queryFn: () => metricsApi.getFundMetrics(fundId, "dpi"),
     enabled: !invalidFundId,
-  })
+  });
 
-  const breakdownErr = breakdownError ? (breakdownError as Error) : null
+  const breakdownErr = breakdownError ? (breakdownError as Error) : null;
 
   const cashFlowData: CashFlowItem[] = useMemo(() => {
-    const transactions =
-      dpiBreakdown?.breakdown?.transactions ?? {
-        capital_calls: [],
-        distributions: [],
-      }
+    const transactions = dpiBreakdown?.breakdown?.transactions ?? {
+      capital_calls: [],
+      distributions: [],
+    };
 
     const calls = (transactions.capital_calls || []).map((call: any) => ({
       date: call.date,
       amount: -Math.abs(call.amount),
-      type: 'capital_call' as const,
-    }))
+      type: "capital_call" as const,
+    }));
 
-    const distributions = (transactions.distributions || []).map((dist: any) => ({
-      date: dist.date,
-      amount: Math.abs(dist.amount),
-      type: 'distribution' as const,
-    }))
+    const distributions = (transactions.distributions || []).map(
+      (dist: any) => ({
+        date: dist.date,
+        amount: Math.abs(dist.amount),
+        type: "distribution" as const,
+      })
+    );
 
-    return [...calls, ...distributions]
-  }, [dpiBreakdown])
+    return [...calls, ...distributions];
+  }, [dpiBreakdown]);
 
   if (invalidFundId) {
     return (
@@ -75,7 +89,7 @@ export default function FundDetailPage() {
         title="Invalid fund id"
         description="Please return to the funds list and pick a valid fund."
       />
-    )
+    );
   }
 
   if (fundLoading) {
@@ -88,7 +102,7 @@ export default function FundDetailPage() {
           <TableSkeleton />
         </div>
       </div>
-    )
+    );
   }
 
   if (fundError || !fund) {
@@ -96,19 +110,19 @@ export default function FundDetailPage() {
       <DataState
         status="error"
         title="Unable to load fund"
-        description={(fundError as Error)?.message || 'Fund not found'}
+        description={(fundError as Error)?.message || "Fund not found"}
         actionLabel="Retry"
         onAction={() => refetchFund()}
       />
-    )
+    );
   }
 
-  const metrics = fund.metrics || {}
+  const metrics = fund.metrics || {};
 
   const handleExport = () => {
-    const slug = fund.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-    triggerExport([fundId], slug || 'fund')
-  }
+    const slug = fund.name?.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    triggerExport([fundId], slug || "fund");
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -128,15 +142,17 @@ export default function FundDetailPage() {
         <div className="flex flex-col items-end gap-2">
           <button
             onClick={handleExport}
-            disabled={exportStatus === 'processing'}
+            disabled={exportStatus === "processing"}
             className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
           >
-            {exportStatus === 'processing' ? (
+            {exportStatus === "processing" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Download className="h-4 w-4" />
             )}
-            {exportStatus === 'processing' ? 'Preparing export...' : 'Export to Excel'}
+            {exportStatus === "processing"
+              ? "Preparing export..."
+              : "Export to Excel"}
           </button>
           {exportMessage && (
             <p className="text-xs text-gray-500">{exportMessage}</p>
@@ -172,48 +188,52 @@ export default function FundDetailPage() {
         title="Adjustments"
       />
     </div>
-  )
+  );
 }
 
 function MetricsGrid({
   metrics,
 }: {
-  metrics: Record<string, number | null | undefined>
+  metrics: Record<string, number | null | undefined>;
 }) {
   const cards = [
     {
-      label: 'DPI',
+      label: "DPI",
       value:
-        metrics?.dpi !== undefined ? `${Number(metrics.dpi).toFixed(2)}x` : 'N/A',
-      description: 'Distribution to paid-in capital',
+        metrics?.dpi !== undefined
+          ? `${Number(metrics.dpi).toFixed(2)}x`
+          : "N/A",
+      description: "Distribution to paid-in capital",
       icon: <TrendingUp className="h-6 w-6 text-blue-600" />,
     },
     {
-      label: 'IRR',
+      label: "IRR",
       value:
         metrics?.irr !== undefined
           ? formatPercentage(Number(metrics.irr))
-          : 'N/A',
-      description: 'Annualized performance',
+          : "N/A",
+      description: "Annualized performance",
       icon: <Activity className="h-6 w-6 text-green-600" />,
     },
     {
-      label: 'Paid-In Capital',
+      label: "Paid-In Capital",
       value:
-        metrics?.pic !== undefined ? formatCurrency(Number(metrics.pic)) : 'N/A',
-      description: 'Total contributions from LPs',
+        metrics?.pic !== undefined
+          ? formatCurrency(Number(metrics.pic))
+          : "N/A",
+      description: "Total contributions from LPs",
       icon: <DollarSign className="h-6 w-6 text-purple-600" />,
     },
     {
-      label: 'Distributions',
+      label: "Distributions",
       value:
         metrics?.total_distributions !== undefined
           ? formatCurrency(Number(metrics.total_distributions))
-          : 'N/A',
-      description: 'Capital returned to LPs',
+          : "N/A",
+      description: "Capital returned to LPs",
       icon: <DollarSign className="h-6 w-6 text-amber-600" />,
     },
-  ]
+  ];
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -231,5 +251,5 @@ function MetricsGrid({
         </div>
       ))}
     </div>
-  )
+  );
 }
